@@ -90,7 +90,6 @@ export async function extractAcceptedUsers(
 
             // Check if 'data' is empty
             if (!statusData || statusData.length === 0) {
-                console.log(`No statuses found for formId: ${formId}`);
                 continue; // Skip this submission if there are no statuses
             }
 
