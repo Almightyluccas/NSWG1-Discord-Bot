@@ -2,13 +2,14 @@ import { Client, GatewayIntentBits, TextChannel } from 'discord.js';
 import { config } from 'dotenv';
 import mysql from 'mysql2'; // Using mysql2 for connection
 import database from './utils/database';
-import request_perscom, {acceptedUsers, Form1Submission} from "./utils/request_perscom";
-import {exec} from "child_process";
-const HEROKU_APP_NAME = "nswg1-discord-bot";
+import request_perscom, { acceptedUsers, Form1Submission } from './utils/request_perscom';
+import { exec } from 'child_process';
+
+const HEROKU_APP_NAME = 'nswg1-discord-bot';
 
 config();
 
-function runBot() {
+async function runBot() {
     const TOKEN = process.env.DISCORD_TOKEN;
     const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
     const DB_USERNAME = process.env.DB_USERNAME;
@@ -19,7 +20,7 @@ function runBot() {
     const BEARER_TOKEN = process.env.BEARER_TOKEN_PERSCOM;
 
     if (!TOKEN) {
-        console.error("Error: DISCORD_TOKEN not found in the environment.");
+        console.error('Error: DISCORD_TOKEN not found in the environment.');
         process.exit(1);
     }
 
@@ -45,7 +46,6 @@ function runBot() {
         }
 
         try {
-
             request_perscom
                 .fetchAllForm1Data(BEARER_TOKEN!)
                 .then(async (data: Form1Submission[]) => {
@@ -73,7 +73,7 @@ function runBot() {
 
                     const guild = client.guilds.cache.get(channel.guild.id);
                     if (!guild) {
-                        console.error("Guild not found.");
+                        console.error('Guild not found.');
                         return;
                     }
                     const discordMembers = await guild.members.fetch();
@@ -115,18 +115,30 @@ function runBot() {
                 .catch(error => {
                     console.error('Error fetching Form1 data or processing users:', error);
                 });
-
-
         } catch (error) {
-            console.error("An error occurred:", error);
+            console.error('An error occurred:', error);
         }
     }
 
+    // Handle exit signals like Ctrl+C gracefully
+    process.on('SIGINT', () => {
+        console.log('Received shutdown signal. Shutting down...');
+        client.destroy(); // Disconnect the bot
+        process.exit(0); // Exit the process
+    });
+
     client.login(TOKEN);
+
+    return client;
 }
 
-function shutDownBot() {
-    console.log("Shutting down the bot...");
+function shutDownBot(client: Client) {
+    console.log('Shutting down the bot...');
+
+    // Destroy the Discord client to stop the bot
+    client.destroy();
+
+    // Stop Heroku dyno worker
     exec(`heroku ps:scale worker=0 --app ${HEROKU_APP_NAME}`, (error, stdout, stderr) => {
         if (error) {
             console.error(`Error scaling down dyno: ${error.message}`);
@@ -137,13 +149,22 @@ function shutDownBot() {
             return;
         }
         console.log(`stdout: ${stdout}`);
-        console.log("Bot shut down successfully.");
+        console.log('Bot shut down successfully.');
     });
 }
 
 async function main() {
-    runBot();
-    shutDownBot();
+    try {
+        const client = await runBot();
+
+        // Example: Shutdown the bot after 1 minute
+        setTimeout(() => {
+            shutDownBot(client); // Pass the client to the shutdown function
+        }, 60000); // Adjust the time as needed
+    } catch (error) {
+        console.error('An error occurred in the bot:', error);
+        process.exit(1);
+    }
 }
 
-main()
+main();
