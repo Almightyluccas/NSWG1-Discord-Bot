@@ -1,7 +1,11 @@
 import mysql from 'mysql2';
-import {acceptedUsers} from "./request_perscom";
+import {acceptedUsers, Form1Submission} from "./request_perscom";
 
-async function insertAcceptedUsersDatabase(conn: mysql.Connection, users: acceptedUsers[]): Promise<void> {
+export interface FormIdsTable {
+    form_id : number
+}
+
+async function putAcceptedUsersTable(conn: mysql.Connection, users: acceptedUsers[]): Promise<void> {
     const query = 'INSERT INTO accepted_users (name, user_id, preferred_position) VALUES ?';
     const values = users.map(user => [user.name, user.id, user.preferred_position]);
     await new Promise<void>((resolve, reject) => {
@@ -15,7 +19,38 @@ async function insertAcceptedUsersDatabase(conn: mysql.Connection, users: accept
     });
 }
 
-async function retrieveUsersDatabase(conn: mysql.Connection): Promise<acceptedUsers[]> {
+async function putFormIdsTable(conn: mysql.Connection, data: Form1Submission[]): Promise<void> {
+    const query = 'INSERT INTO old_forms (form_id) VALUES ?';
+    const values = data.map(user => [user.form_id]);
+    await new Promise<void>((resolve, reject) => {
+        conn.query(query, [values], (err) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+async function getFormsIdsTable(conn: mysql.Connection): Promise<FormIdsTable[]> {
+    const query = 'SELECT form_id FROM old_forms';
+    return new Promise<FormIdsTable[]>((resolve, reject) => {
+        conn.query(query, (err, results) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(
+                    (results as FormIdsTable[]).map(row => ({
+                        form_id: row.form_id
+                    }))
+                );
+            }
+        });
+    });
+}
+
+
+async function getUsersDatabase(conn: mysql.Connection): Promise<acceptedUsers[]> {
     const query = 'SELECT name, user_id AS id, preferred_position FROM accepted_users';
     return new Promise<acceptedUsers[]>((resolve, reject) => {
         conn.query(query, (err, results) => {
@@ -44,16 +79,16 @@ async function compareAndInsertUsers(
     );
 
     if (newUsers.length > 0) {
-        await insertAcceptedUsersDatabase(conn, newUsers);
+        await putAcceptedUsersTable(conn, newUsers);
     }
     return newUsers;
 }
 
 
 
-
-
 export default {
-    retrieveUsersDatabase,
+    getUsersDatabase,
+    getFormsIdsTable,
+    putFormIdsTable,
     compareAndInsertUsers,
 }
