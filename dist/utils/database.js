@@ -11,50 +11,42 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 function insertAcceptedUsersDatabase(conn, users) {
     return __awaiter(this, void 0, void 0, function* () {
-        const query = 'INSERT INTO accepted_users (name) VALUES (?)';
-        for (const user of users) {
-            yield new Promise((resolve, reject) => {
-                conn.query(query, [user], (err) => {
-                    if (err)
-                        reject(err);
-                    else
-                        resolve();
-                });
+        const query = 'INSERT INTO accepted_users (name, user_id, preferred_position) VALUES ?';
+        const values = users.map(user => [user.name, user.id, user.preferred_position]);
+        yield new Promise((resolve, reject) => {
+            conn.query(query, [values], (err) => {
+                if (err) {
+                    reject(err);
+                }
+                else {
+                    resolve();
+                }
             });
-        }
-    });
-}
-function insertUsersDiscordDatabase(conn, users) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const query = 'INSERT INTO users_discord (username, discord_id) VALUES (?, ?)';
-        for (const user of users) {
-            yield new Promise((resolve, reject) => {
-                conn.query(query, [user.username, user.discord_id], (err) => {
-                    if (err)
-                        reject(err);
-                    else
-                        resolve();
-                });
-            });
-        }
+        });
     });
 }
 function retrieveUsersDatabase(conn) {
     return __awaiter(this, void 0, void 0, function* () {
-        const query = 'SELECT name FROM accepted_users';
+        const query = 'SELECT name, user_id AS id, preferred_position FROM accepted_users';
         return new Promise((resolve, reject) => {
             conn.query(query, (err, results) => {
-                if (err)
+                if (err) {
                     reject(err);
-                else
-                    resolve(results.map((row) => row.name)); // Type assertion to ensure `results` is treated as an array of objects
+                }
+                else {
+                    resolve(results.map(row => ({
+                        name: row.name,
+                        id: row.id,
+                        preferred_position: row.preferred_position
+                    })));
+                }
             });
         });
     });
 }
 function compareAndInsertUsers(acceptedUsers, acceptedUsersDatabase, conn) {
     return __awaiter(this, void 0, void 0, function* () {
-        const newUsers = acceptedUsers.filter(user => !acceptedUsersDatabase.includes(user));
+        const newUsers = acceptedUsers.filter(user => !acceptedUsersDatabase.some(dbUser => dbUser.id === user.id));
         if (newUsers.length > 0) {
             yield insertAcceptedUsersDatabase(conn, newUsers);
         }
@@ -62,8 +54,6 @@ function compareAndInsertUsers(acceptedUsers, acceptedUsersDatabase, conn) {
     });
 }
 exports.default = {
-    insertAcceptedUsersDatabase,
-    insertUsersDiscordDatabase,
     retrieveUsersDatabase,
     compareAndInsertUsers,
 };

@@ -17,7 +17,7 @@ const dotenv_1 = require("dotenv");
 const mysql2_1 = __importDefault(require("mysql2")); // Using mysql2 for connection
 const database_1 = __importDefault(require("./utils/database"));
 const request_perscom_1 = __importDefault(require("./utils/request_perscom"));
-(0, dotenv_1.config)();
+(0, dotenv_1.config)({ path: '../.env' });
 const TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 const DB_USERNAME = process.env.DB_USERNAME;
@@ -40,7 +40,7 @@ const client = new discord_js_1.Client({
 client.once('ready', () => {
     var _a;
     console.log(`Bot has logged in as ${(_a = client.user) === null || _a === void 0 ? void 0 : _a.tag}`);
-    setInterval(sendMessageTask, 30000); // Run every 30 seconds
+    setInterval(sendMessageTask, 30000);
 });
 function sendMessageTask() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -50,39 +50,54 @@ function sendMessageTask() {
             return;
         }
         try {
-            // Corrected MySQL connection
-            const connection = mysql2_1.default.createConnection({
-                host: DB_HOST,
-                port: DB_PORT,
-                user: DB_USERNAME,
-                password: DB_PASSWORD,
-                database: DB_NAME,
+            request_perscom_1.default
+                .fetchAllForm1Data(BEARER_TOKEN)
+                .then((data) => __awaiter(this, void 0, void 0, function* () {
+                const form1DataMap = new Map(data.map(submission => [submission.user_id, submission.discord_name]));
+                const connection = mysql2_1.default.createConnection({
+                    host: DB_HOST,
+                    port: DB_PORT,
+                    user: DB_USERNAME,
+                    password: DB_PASSWORD,
+                    database: DB_NAME,
+                });
+                const acceptedUsersDatabase = yield database_1.default.retrieveUsersDatabase(connection);
+                const acceptedUsers = yield request_perscom_1.default.extractAcceptedUsers(data, BEARER_TOKEN);
+                const newAcceptedUsers = yield database_1.default.compareAndInsertUsers(acceptedUsers, acceptedUsersDatabase, connection);
+                const newAcceptedUserDetails = newAcceptedUsers.map(user => (Object.assign(Object.assign({}, user), { discord_name: form1DataMap.get(user.id) || 'Not Found' })));
+                const guild = client.guilds.cache.get(channel.guild.id);
+                if (!guild) {
+                    console.error("Guild not found.");
+                    return;
+                }
+                const discordMembers = yield guild.members.fetch();
+                const discordUsers = discordMembers.map(member => ({
+                    username: member.user.username,
+                    discord_id: member.user.id,
+                }));
+                const newAcceptedUserDetailsWithDiscordId = newAcceptedUserDetails.map(user => {
+                    const discordUser = discordUsers.find(dUser => dUser.username === user.discord_name);
+                    return Object.assign(Object.assign({}, user), { discord_id: discordUser ? discordUser.discord_id : 'Not Found' });
+                });
+                console.log('Mapped users with Discord IDs:', newAcceptedUserDetailsWithDiscordId);
+                for (const userDetails of newAcceptedUserDetailsWithDiscordId) {
+                    if (userDetails.discord_id !== 'Not Found') {
+                        if (userDetails.preferred_position === 0) {
+                            yield channel.send(`<@${userDetails.discord_id}> Your application has been accepted please get in touch with <@667833642248175673> or <@492142030831616010> on Discord for an interview.`);
+                        }
+                        else {
+                            yield channel.send(`<@${userDetails.discord_id}> Your application has been accepted please get in touch with <@249242679211196417> on Discord for an interview.`);
+                        }
+                    }
+                    else {
+                        yield channel.send(`${userDetails.name}/${userDetails.discord_name} (User not found in Discord) has been accepted.`);
+                    }
+                }
+                connection.end();
+            }))
+                .catch(error => {
+                console.error('Error fetching Form1 data or processing users:', error);
             });
-            // Retrieve and compare users from the database
-            const acceptedUsersDatabase = yield database_1.default.retrieveUsersDatabase(connection);
-            const usersFromPerscom = yield request_perscom_1.default.fetchPerscomUsers(BEARER_TOKEN);
-            const acceptedUsers = request_perscom_1.default.extractAcceptedUsers(usersFromPerscom);
-            const newAcceptedUsers = yield database_1.default.compareAndInsertUsers(acceptedUsers, acceptedUsersDatabase, connection);
-            // Fetch guild and members
-            const guild = client.guilds.cache.get(channel.guild.id);
-            if (!guild) {
-                console.error("Guild not found.");
-                return;
-            }
-            const discordMembers = yield guild.members.fetch();
-            const discordUsers = discordMembers.map(member => ({
-                username: member.user.username,
-                discord_id: member.user.id,
-            }));
-            // Insert Discord users into the database
-            yield database_1.default.insertUsersDiscordDatabase(connection, discordUsers);
-            // Send messages for new accepted users
-            for (const user of newAcceptedUsers) {
-                // Assuming user is just a name or ID, send a mentionable message
-                yield channel.send(`New user accepted: ${user}`); // Adjust based on `newAcceptedUsers` structure
-            }
-            // Close connection
-            connection.end();
         }
         catch (error) {
             console.error("An error occurred:", error);
@@ -90,3 +105,4 @@ function sendMessageTask() {
     });
 }
 client.login(TOKEN);
+process.exit(0);
