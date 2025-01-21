@@ -38,11 +38,16 @@ export async function notifyDeniedUsers(newDeniedUsers: DeniedUsers[], data: For
     const discordUsers = discordMembers.map(member => ({
         username: member.user.username,
         discord_id: member.user.id,
+        nickname: member.nickname
     }));
 
     const deniedUserDetailsWithDiscordId = deniedUserDetails.map(user => {
         const savedDiscordName = user.discord_name.split(' ')[0];
-        const discordUser = discordUsers.find(dUser => dUser.username === savedDiscordName);
+        let discordUser = discordUsers.find(dUser => dUser.username === savedDiscordName);
+
+        if (!discordUser) {
+            discordUser = discordUsers.find(dUser => dUser.nickname === savedDiscordName);
+        }
 
         return {
             ...user,
