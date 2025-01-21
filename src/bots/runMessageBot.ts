@@ -66,6 +66,7 @@ export async function runMessageBot(client: Client) {
             if (deniedUsers.length > 0) {
                 await notifyDeniedUsers(deniedUsers, data, client, CHANNEL_ID!);
                 await perscomService.deleteUsers(deniedUsers);
+                await databaseService.deleteOldForms(deniedUsers);
             }
 
             if (newAcceptedUsers.length > 0) {

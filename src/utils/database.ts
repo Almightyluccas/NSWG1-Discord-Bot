@@ -1,5 +1,5 @@
 import mysql from 'mysql2';
-import { AcceptedUsers, Form1Submission } from "./request_perscom";
+import {AcceptedUsers, DeniedUsers, Form1Submission} from "./request_perscom";
 
 export interface FormIdsTable {
     form_id: number;
@@ -74,6 +74,21 @@ export class DatabaseService {
                 }
             });
         });
+    }
+
+    public async deleteOldForms(deniedUsers: DeniedUsers[]): Promise<void> {
+        const query = 'DELETE FROM old_forms WHERE form_id = ?';
+        const values = deniedUsers.map(user => [user.form_id]);
+        await new Promise<void>((resolve, reject) => {
+            this.connection.query(query, [values], (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
+
     }
 
     public async compareAndInsertUsers(

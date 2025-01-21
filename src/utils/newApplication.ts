@@ -9,8 +9,8 @@ export async function notifyNewApplications(newSubmissions: Form1Submission[], c
         return;
     }
 
-    const positionZeroSubmissions = newSubmissions.filter(submission => submission.preferred_position === 0);
-    const otherPositionSubmissions = newSubmissions.filter(submission => submission.preferred_position !== 0);
+    const positionZeroSubmissions = newSubmissions.filter(submission => submission.preferred_position === "SO Special Warfare Operator");
+    const otherPositionSubmissions = newSubmissions.filter(submission => submission.preferred_position !== "SO Special Warfare Operator");
 
     const applicationUrl = (formId: number) => `https://nswg-1.com/admin/perscom/submissions/${formId}`; // Replace with actual URL for single application
 

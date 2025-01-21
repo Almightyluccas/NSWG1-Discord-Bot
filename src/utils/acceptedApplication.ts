@@ -45,7 +45,7 @@ export async function notifyAcceptedUsers(newAcceptedUsers: AcceptedUsers[], dat
 
     for (const userDetails of newAcceptedUserDetailsWithDiscordId) {
         if (userDetails.discord_id !== 'Not Found') {
-            if (userDetails.preferred_position === 0) {
+            if (userDetails.preferred_position === "SO Special Warfare Operator") {
                 await channel.send(
                     `<@${userDetails.discord_id}> Your application has been accepted please get in touch with <@667833642248175673> or <@492142030831616010> on Discord for an interview.`
                 );

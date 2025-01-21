@@ -12,7 +12,7 @@ interface Submission {
     date_of_birth: string;
     email_address: string;
     previous_unit: number;
-    preferred_position: number;
+    preferred_position: string;
     why_do_you_want_to_join_red_squadron: string;
     label: string;
 }
@@ -54,7 +54,7 @@ interface Status {
 export interface Form1Submission {
     first_name: string;
     discord_name: string;
-    preferred_position: number;
+    preferred_position: string;
     user_id: number;
     form_id: number;
     date_of_birth: string;
@@ -63,14 +63,16 @@ export interface Form1Submission {
 export interface AcceptedUsers {
     name: string;
     id: number;
-    preferred_position: number;
+    preferred_position: string;
+    form_id?: number;
     date_of_birth?: string;
 }
 
 export interface DeniedUsers {
     name: string;
     id: number;
-    preferred_position: number;
+    preferred_position: string;
+    form_id?: number;
     date_of_birth?: string;
 }
 
@@ -112,6 +114,7 @@ export class PerscomService {
                         name: submission.first_name,
                         id: submission.user_id,
                         preferred_position: submission.preferred_position,
+                        form_id: submission.form_id,
                         date_of_birth: submission.date_of_birth,
                     });
                 }
