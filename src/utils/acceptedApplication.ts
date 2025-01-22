@@ -27,13 +27,16 @@ export async function notifyAcceptedUsers(newAcceptedUsers: AcceptedUsers[], dat
         discord_id: member.user.id,
         nickname: member.nickname,
     }));
+    console.log(discordUsers)
 
     const newAcceptedUserDetailsWithDiscordId = newAcceptedUserDetails.map(user => {
         const savedDiscordName = user.discord_name.split(' ')[0];
-        let discordUser = discordUsers.find(dUser => dUser.username === savedDiscordName);
 
+        let discordUser = discordUsers.find(dUser => dUser.username === savedDiscordName);
         if (!discordUser) {
             discordUser = discordUsers.find(dUser => dUser.nickname === savedDiscordName);
+            console.log(discordUsers)
+            console.log(savedDiscordName)
         }
 
         return {
