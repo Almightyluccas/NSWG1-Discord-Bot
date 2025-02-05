@@ -2,7 +2,7 @@ import { config } from 'dotenv';
 import { runMessageBot } from "./bots/runMessageBot";
 import { shutDownBot } from "./utils/shutDownBot";
 import { Client, GatewayIntentBits } from "discord.js";
-require('./utils/newrelic');
+require('newrelic');
 
 
 interface AllClients {
