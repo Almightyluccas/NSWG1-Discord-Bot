@@ -8,13 +8,9 @@ exports.config = {
         enabled: true,
     },
     application_logging: {
-      enabled: true,
       forwarding: {
           enabled: true,
       },
-      local_decorating: {
-          enabled: true,
-      }
     },
     distributed_tracing: {
         enabled: true,
