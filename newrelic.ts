@@ -7,6 +7,15 @@ exports.config = {
         level: process.env.NEW_RELIC_LOG_LEVEL,
         enabled: true,
     },
+    application_logging: {
+      enabled: true,
+      forwarding: {
+          enabled: true,
+      },
+      local_decorating: {
+          enabled: true,
+      }
+    },
     distributed_tracing: {
         enabled: true,
     },

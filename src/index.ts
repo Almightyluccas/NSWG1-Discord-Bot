@@ -4,7 +4,6 @@ import { shutDownBot } from "./utils/shutDownBot";
 import { Client, GatewayIntentBits } from "discord.js";
 require('newrelic');
 
-
 interface AllClients {
     messageBotClient: Client;
 }
