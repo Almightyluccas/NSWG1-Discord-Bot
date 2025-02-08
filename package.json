@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "start": "node -relic dist/index.js",
+    "start": "node -r newrelic dist/index.js",
     "build": "tsc",
     "heroku-postbuild": "npm run build"
   },
