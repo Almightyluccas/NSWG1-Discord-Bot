@@ -77,7 +77,7 @@ export interface DeniedUsers {
 }
 
 export class PerscomService {
-    private BEARER_TOKEN: string;
+    private readonly BEARER_TOKEN: string;
 
     constructor(bearerToken: string) {
         this.BEARER_TOKEN = bearerToken;
@@ -91,7 +91,6 @@ export class PerscomService {
 
         for (const submission of submissions) {
             const formId = submission.form_id;
-
             try {
                 const response = await axios.get<StatusResponse>(
                     `https://api.perscom.io/v2/submissions/${formId}/statuses`,
@@ -103,11 +102,9 @@ export class PerscomService {
                     }
                 );
                 const statusData = response.data.data;
-
                 if (!statusData || statusData.length === 0) {
                     continue;
                 }
-
                 const matchedStatus = statusData.find(status => status.id === statusId);
                 if (matchedStatus) {
                     activeUsers.push({
@@ -119,7 +116,7 @@ export class PerscomService {
                     });
                 }
             } catch (error) {
-                console.error(`Error fetching statuses for formId: ${formId}`, error);
+                console.error(`Error fetching statuses for formId ${formId}:`, error);
             }
         }
         return activeUsers;
@@ -139,10 +136,15 @@ export class PerscomService {
                 }
             });
 
+            if (!metadataResponse.ok) {
+                console.error(`Metadata response error: ${metadataResponse.status} ${metadataResponse.statusText}`);
+                return [];
+            }
+
             const metadata = await metadataResponse.json();
             lastPage = metadata.meta.last_page;
         } catch (error) {
-            console.error('Error fetching metadata:');
+            console.error('Error fetching metadata:', error);
             return [];
         }
 
@@ -155,6 +157,11 @@ export class PerscomService {
                         'Content-Type': 'application/json'
                     }
                 });
+
+                if (!response.ok) {
+                    console.error(`Error fetching submissions for page ${page}: ${response.status} ${response.statusText}`);
+                    break;
+                }
 
                 const data = await response.json();
                 const form1Submissions = data.data
@@ -169,10 +176,9 @@ export class PerscomService {
                     }));
 
                 allForm1Submissions.push(...form1Submissions);
-
                 page++;
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error(`Error fetching data on page ${page}:`, error);
                 break;
             }
         }
@@ -186,6 +192,10 @@ export class PerscomService {
                     'Authorization': `Bearer ${this.BEARER_TOKEN}`,
                 },
             });
+
+            if (response.status !== 200) {
+                console.warn(`Cache clear responded with: ${response.status} ${response.statusText}`);
+            }
         } catch (error) {
             console.error('Error clearing cache:', error);
         }
@@ -203,10 +213,15 @@ export class PerscomService {
 
             try {
                 const response = await fetch(`https://api.perscom.io/v2/users/${user.id}`, options);
+                if (!response.ok) {
+                    const errorMsg = await response.text();
+                    console.error(`Failed to delete user ${user.name}: ${response.status} ${response.statusText} - ${errorMsg}`);
+                    continue;
+                }
                 const data = await response.json();
-                console.log(data);
+                console.log(`Deleted user ${user.name}:`, data);
             } catch (err) {
-                console.error(`Error deleting user: ${user.name}`, err);
+                console.error(`Error deleting user ${user.name}:`, err);
             }
         }
     }

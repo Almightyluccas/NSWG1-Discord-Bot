@@ -1,23 +1,23 @@
-import {Client} from "discord.js";
-import {exec} from "child_process";
+import { Client } from "discord.js";
+import { exec } from "child_process";
+import { promisify } from "util";
 
+const execPromise = promisify(exec);
 const HEROKU_APP_NAME = 'nswg1-discord-bot';
 
-export function shutDownBot(client: Client) {
+export async function shutDownBot(client: Client): Promise<void> {
     console.log('Shutting down the bot...');
 
-    client.destroy();
+    await Promise.resolve(client.destroy());
 
-    exec(`heroku ps:scale worker=0 --app ${HEROKU_APP_NAME}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error scaling down dyno: ${error.message}`);
-            return;
-        }
+    try {
+        const { stdout, stderr } = await execPromise(`heroku ps:scale worker=0 --app ${HEROKU_APP_NAME}`);
         if (stderr) {
             console.error(`stderr: ${stderr}`);
-            return;
         }
         console.log(`stdout: ${stdout}`);
         console.log('Bot shut down successfully.');
-    });
+    } catch (error: any) {
+        console.error(`Error scaling down dyno: ${error.message}`);
+    }
 }

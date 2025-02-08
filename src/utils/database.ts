@@ -1,94 +1,77 @@
-import mysql from 'mysql2';
-import {AcceptedUsers, DeniedUsers, Form1Submission} from "./request_perscom";
+import { PoolConnection } from "mysql2/promise";
+import { AcceptedUsers, DeniedUsers, Form1Submission } from "./request_perscom";
 
 export interface FormIdsTable {
     form_id: number;
 }
 
 export class DatabaseService {
-    private connection: mysql.Connection;
+    private connection: PoolConnection;
 
-    constructor(connection: mysql.Connection) {
+    constructor(connection: PoolConnection) {
         this.connection = connection;
     }
 
     public async putAcceptedUsersTable(users: AcceptedUsers[]): Promise<void> {
         const query = 'INSERT INTO accepted_users (name, user_id, preferred_position) VALUES ?';
         const values = users.map(user => [user.name, user.id, user.preferred_position]);
-        await new Promise<void>((resolve, reject) => {
-            this.connection.query(query, [values], (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
+        try {
+            await this.connection.query(query, [values]);
+        } catch (err) {
+            console.error("Error inserting accepted users:", err);
+            throw err;
+        }
     }
 
     public async putFormIdsTable(data: Form1Submission[]): Promise<void> {
         const query = 'INSERT INTO old_forms (form_id) VALUES ?';
         const values = data.map(user => [user.form_id]);
-        await new Promise<void>((resolve, reject) => {
-            this.connection.query(query, [values], (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
+        try {
+            await this.connection.query(query, [values]);
+        } catch (err) {
+            console.error("Error inserting form IDs:", err);
+            throw err;
+        }
     }
 
     public async getFormsIdsTable(): Promise<FormIdsTable[]> {
         const query = 'SELECT form_id FROM old_forms';
-        return new Promise<FormIdsTable[]>((resolve, reject) => {
-            this.connection.query(query, (err, results) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(
-                        (results as FormIdsTable[]).map(row => ({
-                            form_id: row.form_id
-                        }))
-                    );
-                }
-            });
-        });
+        try {
+            const [results] = await this.connection.query(query);
+            return (results as FormIdsTable[]).map(row => ({
+                form_id: row.form_id,
+            }));
+        } catch (err) {
+            console.error("Error fetching form IDs:", err);
+            throw err;
+        }
     }
 
     public async getUsersDatabase(): Promise<AcceptedUsers[]> {
         const query = 'SELECT name, user_id AS id, preferred_position FROM accepted_users';
-        return new Promise<AcceptedUsers[]>((resolve, reject) => {
-            this.connection.query(query, (err, results) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(
-                        (results as AcceptedUsers[]).map(row => ({
-                            name: row.name,
-                            id: row.id,
-                            preferred_position: row.preferred_position
-                        }))
-                    );
-                }
-            });
-        });
+        try {
+            const [results] = await this.connection.query(query);
+            return (results as AcceptedUsers[]).map(row => ({
+                name: row.name,
+                id: row.id,
+                preferred_position: row.preferred_position,
+            }));
+        } catch (err) {
+            console.error("Error fetching accepted users:", err);
+            throw err;
+        }
     }
 
     public async deleteOldForms(deniedUsers: DeniedUsers[]): Promise<void> {
         const query = 'DELETE FROM old_forms WHERE form_id = ?';
-        const values = deniedUsers.map(user => [user.form_id]);
-        await new Promise<void>((resolve, reject) => {
-            this.connection.query(query, [values], (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
-
+        try {
+            for (const user of deniedUsers) {
+                await this.connection.query(query, [user.form_id]);
+            }
+        } catch (err) {
+            console.error("Error deleting old forms:", err);
+            throw err;
+        }
     }
 
     public async compareAndInsertUsers(

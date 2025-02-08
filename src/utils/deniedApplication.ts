@@ -1,6 +1,5 @@
-import { DeniedUsers, Form1Submission} from "./request_perscom";
-import {Client, TextChannel} from "discord.js";
-
+import { DeniedUsers, Form1Submission } from "./request_perscom";
+import { Client, TextChannel } from "discord.js";
 
 function calculateAge(dateOfBirth: string): number {
     const birthDate = new Date(dateOfBirth);
@@ -14,62 +13,79 @@ function calculateAge(dateOfBirth: string): number {
     return age;
 }
 
-export async function notifyDeniedUsers(newDeniedUsers: DeniedUsers[], data: Form1Submission[], client: Client, channelID: string) {
-    const channel = client.channels.cache.get(channelID!) as TextChannel;
-
-    if (!channel) {
-        console.error(`Channel with ID ${channelID} not found.`);
-        return;
-    }
-
-    const form1DataMap = new Map(data.map(submission => [submission.user_id, submission.discord_name]));
-
-    const deniedUserDetails = newDeniedUsers.map(user => ({
-        ...user,
-        discord_name: form1DataMap.get(user.id) || 'Not Found',
-    }));
-
-    const guild = client.guilds.cache.get(channel.guild.id);
-    if (!guild) {
-        console.error('Guild not found.');
-        return;
-    }
-    const discordMembers = await guild.members.fetch();
-    const discordUsers = discordMembers.map(member => ({
-        username: member.user.username,
-        discord_id: member.user.id,
-        nickname: member.nickname,
-        displayName: member.displayName
-    }));
-
-    const deniedUserDetailsWithDiscordId = deniedUserDetails.map(user => {
-        const savedDiscordName = user.discord_name.split(' ')[0];
-        let discordUser = discordUsers.find(dUser => dUser.username === savedDiscordName);
-        if (!discordUser) {
-            discordUser = discordUsers.find(dUser => dUser.nickname === savedDiscordName);
-        }
-        if(!discordUser) {
-            discordUser = discordUsers.find(dUser => dUser.displayName === savedDiscordName);
+export async function notifyDeniedUsers(
+    newDeniedUsers: DeniedUsers[],
+    data: Form1Submission[],
+    client: Client,
+    channelID: string
+) {
+    try {
+        const channel = client.channels.cache.get(channelID) as TextChannel;
+        if (!channel) {
+            console.error(`Channel with ID ${channelID} not found.`);
+            return;
         }
 
-        return {
+        const form1DataMap = new Map(data.map(submission => [submission.user_id, submission.discord_name]));
+        const deniedUserDetails = newDeniedUsers.map(user => ({
             ...user,
-            discord_id: discordUser ? discordUser.discord_id : 'Not Found',
-        };
-    });
+            discord_name: form1DataMap.get(user.id) || 'Not Found',
+        }));
 
+        const guild = client.guilds.cache.get(channel.guild.id);
+        if (!guild) {
+            console.error("Guild not found.");
+            return;
+        }
 
-    for (const userDetails of deniedUserDetailsWithDiscordId) {
-        if (userDetails.discord_id !== 'Not Found' && userDetails.date_of_birth) {
-            if (calculateAge(userDetails.date_of_birth) < 16) {
-                await channel.send(
-                    `<@${userDetails.discord_id}> Your application has been denied due to age requirement. Must be 16+ `
-                );
-            } else {
-                await channel.send(
-                    `<@${userDetails.discord_id}> Your application has been denied due to lack of effort. Please try again in 14 days`
-                );
+        let discordMembers;
+        try {
+            discordMembers = await guild.members.fetch();
+        } catch (fetchError) {
+            console.error("Error fetching guild members:", fetchError);
+            return;
+        }
+
+        const discordUsers = discordMembers.map(member => ({
+            username: member.user.username,
+            discord_id: member.user.id,
+            nickname: member.nickname,
+            displayName: member.displayName
+        }));
+
+        const deniedUserDetailsWithDiscordId = deniedUserDetails.map(user => {
+            const savedDiscordName = user.discord_name.split(' ')[0];
+            let discordUser = discordUsers.find(dUser => dUser.username === savedDiscordName)
+                || discordUsers.find(dUser => dUser.nickname === savedDiscordName)
+                || discordUsers.find(dUser => dUser.displayName === savedDiscordName);
+            return {
+                ...user,
+                discord_id: discordUser ? discordUser.discord_id : 'Not Found',
+            };
+        });
+
+        for (const userDetails of deniedUserDetailsWithDiscordId) {
+            try {
+                if (userDetails.discord_id !== 'Not Found' && userDetails.date_of_birth) {
+                    if (calculateAge(userDetails.date_of_birth) < 16) {
+                        await channel.send(
+                            `<@${userDetails.discord_id}> Your application has been denied due to age requirement. The age requirement is 16+.`
+                        );
+                    } else {
+                        await channel.send(
+                            `<@${userDetails.discord_id}> Your application has been denied due to lack of effort. Please try again in 14 days.`
+                        );
+                    }
+                } else {
+                    console.warn(
+                        `Skipping notification for user ${userDetails.name} (Discord ID not found or missing date_of_birth).`
+                    );
+                }
+            } catch (sendError) {
+                console.error(`Error sending notification to user ${userDetails.discord_id}:`, sendError);
             }
         }
+    } catch (error) {
+        console.error("Unhandled error in notifyDeniedUsers:", error);
     }
 }

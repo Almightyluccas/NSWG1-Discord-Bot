@@ -20,18 +20,23 @@ async function main(): Promise<AllClients> {
             ],
         });
         const messageBotClient = await runMessageBot(client);
-
-        return { messageBotClient: messageBotClient };
-
+        return { messageBotClient };
     } catch (error) {
         console.error('An error occurred in the bot:', error);
         process.exit(1);
     }
 }
 
-main().then((client: AllClients): void => {
-    setTimeout(() => {
-        shutDownBot(client.messageBotClient);
-        process.exit(0)
+main().then(async (client: AllClients): Promise<void> => {
+    const shutdown = async () => {
+        await shutDownBot(client.messageBotClient);
+        process.exit(0);
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+
+    setTimeout(async () => {
+        await shutdown();
     }, 60000);
 });
