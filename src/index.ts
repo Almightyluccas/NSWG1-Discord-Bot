@@ -2,7 +2,6 @@ import { config } from 'dotenv';
 import { runMessageBot } from "./bots/runMessageBot";
 import { shutDownBot } from "./utils/shutDownBot";
 import { Client, GatewayIntentBits } from "discord.js";
-require('newrelic');
 
 interface AllClients {
     messageBotClient: Client;
@@ -36,7 +35,7 @@ main().then(async (client: AllClients): Promise<void> => {
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
 
-    setTimeout(async () => {
-        await shutdown();
-    }, 60000);
+    // setTimeout(async () => {
+    //     await shutdown();
+    // }, 60000);
 });
