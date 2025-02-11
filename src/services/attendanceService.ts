@@ -1,15 +1,30 @@
 import mysql from 'mysql2/promise';
 import { config } from '../config/config';
 
-const pool = mysql.createPool({
-    host: config.ATTENDANCE_DB_HOST,
-    user: config.ATTENDANCE_DB_USERNAME,
-    password: config.ATTENDANCE_DB_PASSWORD,
-    database: config.ATTENDANCE_DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
+let connection: mysql.Connection | null = null;
+
+async function getConnection(): Promise<mysql.Connection> {
+    if (!connection) {
+        connection = await mysql.createConnection({
+            host: config.ATTENDANCE_DB_HOST,
+            user: config.ATTENDANCE_DB_USERNAME,
+            password: config.ATTENDANCE_DB_PASSWORD,
+            database: config.ATTENDANCE_DB_NAME,
+            enableKeepAlive: true,
+            keepAliveInitialDelay: 0
+        });
+
+        connection.on('error', async (err) => {
+            console.error('Database connection error:', err);
+            if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+                console.log('Reconnecting to database...');
+                connection = null;
+                await getConnection();
+            }
+        });
+    }
+    return connection;
+}
 
 export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 8));
 
@@ -21,11 +36,10 @@ export interface AttendanceRecord {
 }
 
 export async function getPlayerAttendance(playerNickname: string): Promise<AttendanceRecord[]> {
-    let connection;
     try {
-        connection = await pool.getConnection();
+        const conn = await getConnection();
         
-        const [rows] = await connection.query<mysql.RowDataPacket[]>(
+        const [rows] = await conn.query<mysql.RowDataPacket[]>(
             'SELECT date, player, minutes, raid_type, status FROM RaidActivity WHERE player = ?',
             [playerNickname]
         );
@@ -43,23 +57,29 @@ export async function getPlayerAttendance(playerNickname: string): Promise<Atten
         });
     } catch (error) {
         console.error('Error fetching player attendance:', error);
-        return [];
-    } finally {
-        if (connection) connection.release();
+        throw error;
     }
 }
 
 export async function cleanup(): Promise<void> {
-    await pool.end();
+    try {
+        if (connection) {
+            await connection.end();
+            connection = null;
+            console.log('Database connection closed successfully');
+        }
+    } catch (error) {
+        console.error('Error closing database connection:', error);
+    }
 }
 
-process.on('SIGINT', async () => {
+process.once('SIGINT', async () => {
     console.log('Cleaning up attendance service connections...');
     await cleanup();
     process.exit(0);
 });
 
-process.on('SIGTERM', async () => {
+process.once('SIGTERM', async () => {
     console.log('Cleaning up attendance service connections...');
     await cleanup();
     process.exit(0);

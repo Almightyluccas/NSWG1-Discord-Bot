@@ -159,19 +159,26 @@ export const attendanceCommand: Command = {
                 });
 
             } catch (error) {
-                console.error('Error displaying calendar:', error);
+                console.error('Error fetching attendance data:', error);
                 await interaction.editReply({
-                    content: 'There was an error displaying the attendance calendar.',
+                    content: 'There was an error retrieving attendance data. This could be due to a database connection issue. Please try again in a few minutes.',
                     components: []
                 });
             }
 
         } catch (error: unknown) {
             console.error('Error executing attendance command:', error);
-            await interaction.reply({
-                content: 'There was an error generating the attendance calendar.',
-                flags: MessageFlags.Ephemeral
-            }).catch(() => {});
+            if (!interaction.replied) {
+                await interaction.reply({
+                    content: 'There was an error generating the attendance calendar.',
+                    flags: MessageFlags.Ephemeral
+                }).catch(() => {});
+            } else {
+                await interaction.editReply({
+                    content: 'There was an error generating the attendance calendar.',
+                    components: []
+                }).catch(() => {});
+            }
         }
     }
 };
@@ -220,7 +227,6 @@ function generateCalendarEmbed(
         hAlign: 'center'
     })));
 
-    const firstDay = new Date(year, month, 1).getDay();
     const lastDay = new Date(year, month + 1, 0).getDate();
     let currentWeek: any[] = new Array(7).fill('  ');
     let totalRaidDays = 0;
