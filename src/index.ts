@@ -1,8 +1,7 @@
-import { config } from 'dotenv';
 import { applicationBot } from "./bots/applicationBot";
 import { Client, GatewayIntentBits } from "discord.js";
-
-config({ path: '../.env' });
+import { commandBot } from "./bots/commandBot";
+import { config } from "./config/config";
 
 async function main() {
     try {
@@ -15,9 +14,18 @@ async function main() {
         });
 
         await applicationBot(client);
+        await commandBot(client);
 
-        process.on('SIGINT', () => process.exit(0));
-        process.on('SIGTERM', () => process.exit(0));
+        await client.login(config.DISCORD_TOKEN);
+
+        process.on('SIGINT', () => {
+            client.destroy();
+            process.exit(0);
+        });
+        process.on('SIGTERM', () => {
+            client.destroy();
+            process.exit(0);
+        });
 
     } catch (error) {
         console.error('An error occurred in the bot:', error);

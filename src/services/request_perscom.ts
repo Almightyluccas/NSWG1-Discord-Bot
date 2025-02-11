@@ -61,8 +61,8 @@ export interface Form1Submission {
 }
 
 export interface AcceptedUsers {
-    discord_name: string;
     first_name: string;
+    discord_name: string;
     user_id: number;
     preferred_position: string;
     form_id?: number;
@@ -70,8 +70,8 @@ export interface AcceptedUsers {
 }
 
 export interface DeniedUsers {
-    discord_name: string;
     first_name: string;
+    discord_name: string;
     user_id: number;
     preferred_position: string;
     form_id?: number;

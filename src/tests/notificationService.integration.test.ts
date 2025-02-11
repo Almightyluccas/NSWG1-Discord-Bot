@@ -6,9 +6,9 @@ import { config } from '../config/config';
 const mockFormData: Form1Submission[] = [
     {
         first_name: "G. Luccas",
-        discord_name: ".lu.ccas",
-        user_id: 999,
+        discord_name: ".luccas",
         preferred_position: "SO Special Warfare Operator",
+        user_id: 999,
         form_id: 999,
         date_of_birth: "2000-01-01"
     }
@@ -16,7 +16,7 @@ const mockFormData: Form1Submission[] = [
 
 const mockAcceptedUsers: AcceptedUsers[] = [
     {
-        discord_name: ".lu.ccas",
+        discord_name: "DFSSDFS",
         first_name: "G. Luccas",
         user_id: 999,
         preferred_position: "SO Special Warfare Operator",
@@ -57,8 +57,8 @@ describe('NotificationService Integration Tests', () => {
 
             notificationService = new NotificationService(
                 client,
-                config.DISCORD_CHANNEL_ID,
-                config.NEW_SUBMISSIONS_CHANNEL_ID
+                config.APPLICATION_DISCORD_CHANNEL_ID,
+                config.NEW_APPLICATION_CHANNEL_ID
             );
         } catch (error) {
             console.error('Setup failed:', error);
@@ -77,7 +77,7 @@ describe('NotificationService Integration Tests', () => {
         expect.assertions(1);
 
         try {
-            console.log('Sending accepted notifications...');
+            console.log('Mock data:', { mockAcceptedUsers, mockFormData });
             await notificationService.notifyAcceptedUsers(mockAcceptedUsers, mockFormData);
             console.log('Accepted notifications sent successfully');
             expect(true).toBe(true);

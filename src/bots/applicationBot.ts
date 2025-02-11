@@ -6,11 +6,11 @@ import { NotificationService } from "../services/notificationService";
 import { config } from "../config/config";
 
 const pool = mysql.createPool({
-    host: config.DB_HOST,
-    port: config.DB_PORT,
-    user: config.DB_USERNAME,
-    password: config.DB_PASSWORD,
-    database: config.DB_NAME,
+    host: config.APPLICATION_DB_HOST,
+    port: config.APPLICATION_DB_PORT,
+    user: config.APPLICATION_DB_USERNAME,
+    password: config.APPLICATION_DB_PASSWORD,
+    database: config.APPLICATION_DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
@@ -18,35 +18,30 @@ const pool = mysql.createPool({
 
 const poolPromise = pool.promise();
 
-export async function applicationBot(client: Client) {
-    const notificationService = new NotificationService(
-        client,
-        config.DISCORD_CHANNEL_ID,
-        config.NEW_SUBMISSIONS_CHANNEL_ID
-    );
-
+export async function applicationBot(client: Client): Promise<void> {
     client.once("ready", () => {
         console.log(`Application Bot has logged in as ${client.user?.tag}`);
-        setInterval(sendMessageTask, 300000);
+        console.log('Starting application check scheduler (every 5 minutes)');
+        setInterval(sendMessageTask, 300000); 
+        sendMessageTask();
     });
+
+    const notificationService = new NotificationService(client, config.APPLICATION_DISCORD_CHANNEL_ID, config.NEW_APPLICATION_CHANNEL_ID);
 
     async function sendMessageTask(): Promise<void> {
         const startTime = new Date();
-        console.log(`Application Bot running check at ${startTime.toLocaleString()}`);
+        console.log(`[${startTime.toISOString()}] Application Bot: Starting check...`);
         
         let connection;
         try {
             connection = await poolPromise.getConnection();
-        } catch (connError) {
-            console.error("Error acquiring connection from pool:", connError);
-            return;
-        }
+            const checkStartTime = Date.now();
 
-        try {
             const perscomService: PerscomService = new PerscomService(config.BEARER_TOKEN_PERSCOM);
             const databaseService: DatabaseService = new DatabaseService(connection);
 
             await perscomService.clearCache();
+            console.log(`[${new Date().toISOString()}] Cache cleared successfully`);
 
             const data: Form1Submission[] = await perscomService.getAllForm1Data();
             const oldSubmissions: FormIdsTable[] = await databaseService.getFormsIdsTable();
@@ -58,6 +53,7 @@ export async function applicationBot(client: Client) {
             );
 
             if (newSubmissions.length !== 0) {
+                console.log(`[${new Date().toISOString()}] Found ${newSubmissions.length} new submissions`);
                 await databaseService.putFormIdsTable(newSubmissions);
                 await notificationService.notifyNewApplications(newSubmissions);
             }
@@ -71,29 +67,26 @@ export async function applicationBot(client: Client) {
 
             const deniedUsers: DeniedUsers[] = await perscomService.getSubmissionStatus(data, 8);
             if (deniedUsers.length > 0) {
-                console.log("Denied Users:", deniedUsers);
+                console.log(`[${new Date().toISOString()}] Processing ${deniedUsers.length} denied applications`);
                 await notificationService.notifyDeniedUsers(deniedUsers, data);
                 await perscomService.deleteUsers(deniedUsers);
                 await databaseService.deleteOldForms(deniedUsers);
             }
 
             if (newAcceptedUsers.length > 0) {
+                console.log(`[${new Date().toISOString()}] Processing ${newAcceptedUsers.length} newly accepted applications`);
                 await notificationService.notifyAcceptedUsers(newAcceptedUsers, data);
             }
 
-            console.log(`Application Bot finished check at ${new Date().toLocaleString()}`);
+            const checkDuration = Date.now() - checkStartTime;
+            console.log(`[${new Date().toISOString()}] Application Bot: Check completed successfully (Duration: ${checkDuration}ms)`);
+
         } catch (error) {
-            console.error("Error during sendMessageTask:", error);
+            console.error(`[${new Date().toISOString()}] Error during application check:`, error);
         } finally {
-            connection.release();
+            if (connection) {
+                connection.release();
+            }
         }
     }
-
-    try {
-        await client.login(config.DISCORD_TOKEN);
-    } catch (loginError) {
-        console.error("Bot failed to login:", loginError);
-        process.exit(1);
-    }
-    return client;
 }

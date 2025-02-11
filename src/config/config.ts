@@ -13,25 +13,34 @@ if (process.env.NODE_ENV !== 'production') {
 
 interface Config {
     DISCORD_TOKEN: string;
-    DISCORD_CHANNEL_ID: string;
-    NEW_SUBMISSIONS_CHANNEL_ID: string;
-    DB_USERNAME: string;
-    DB_PASSWORD: string;
-    DB_HOST: string;
-    DB_PORT: number;
-    DB_NAME: string;
+    APPLICATION_DISCORD_CHANNEL_ID: string;
+    NEW_APPLICATION_CHANNEL_ID: string;
+    APPLICATION_DB_USERNAME: string;
+    APPLICATION_DB_PASSWORD: string;
+    APPLICATION_DB_HOST: string;
+    APPLICATION_DB_PORT: number;
+    APPLICATION_DB_NAME: string;
+    ATTENDANCE_DB_USERNAME: string;
+    ATTENDANCE_DB_PASSWORD: string;
+    ATTENDANCE_DB_HOST: string;
+    ATTENDANCE_DB_PORT: number;
+    ATTENDANCE_DB_NAME: string;
     BEARER_TOKEN_PERSCOM: string;
 }
 
 function validateConfig(): Config {
     const requiredEnvVars = [
         'DISCORD_TOKEN',
-        'DISCORD_CHANNEL_ID',
-        'NEW_SUBMISSIONS_CHANNEL_ID',
-        'DB_USERNAME',
-        'DB_PASSWORD',
-        'DB_HOST',
-        'DB_NAME',
+        'APPLICATION_DISCORD_CHANNEL_ID',
+        'NEW_APPLICATION_CHANNEL_ID',
+        'APPLICATION_DB_USERNAME',
+        'APPLICATION_DB_PASSWORD',
+        'APPLICATION_DB_HOST',
+        'APPLICATION_DB_NAME',
+        'ATTENDANCE_DB_USERNAME',
+        'ATTENDANCE_DB_PASSWORD',
+        'ATTENDANCE_DB_HOST',
+        'ATTENDANCE_DB_NAME',
         'BEARER_TOKEN_PERSCOM'
     ];
 
@@ -42,13 +51,18 @@ function validateConfig(): Config {
 
     return {
         DISCORD_TOKEN: process.env.DISCORD_TOKEN!,
-        DISCORD_CHANNEL_ID: process.env.DISCORD_CHANNEL_ID!,
-        NEW_SUBMISSIONS_CHANNEL_ID: process.env.NEW_SUBMISSIONS_CHANNEL_ID!,
-        DB_USERNAME: process.env.DB_USERNAME!,
-        DB_PASSWORD: process.env.DB_PASSWORD!,
-        DB_HOST: process.env.DB_HOST!,
-        DB_PORT: parseInt(process.env.DB_PORT || "3306", 10),
-        DB_NAME: process.env.DB_NAME!,
+        APPLICATION_DISCORD_CHANNEL_ID: process.env.APPLICATION_DISCORD_CHANNEL_ID!,
+        NEW_APPLICATION_CHANNEL_ID: process.env.NEW_APPLICATION_CHANNEL_ID!,
+        APPLICATION_DB_USERNAME: process.env.APPLICATION_DB_USERNAME!,
+        APPLICATION_DB_PASSWORD: process.env.APPLICATION_DB_PASSWORD!,
+        APPLICATION_DB_HOST: process.env.APPLICATION_DB_HOST!,
+        APPLICATION_DB_PORT: parseInt(process.env.APPLICATION_DB_PORT || "3306", 10),
+        APPLICATION_DB_NAME: process.env.APPLICATION_DB_NAME!,
+        ATTENDANCE_DB_USERNAME: process.env.ATTENDANCE_DB_USERNAME!,
+        ATTENDANCE_DB_PASSWORD: process.env.ATTENDANCE_DB_PASSWORD!,
+        ATTENDANCE_DB_HOST: process.env.ATTENDANCE_DB_HOST!,
+        ATTENDANCE_DB_PORT: parseInt(process.env.ATTENDANCE_DB_PORT || "3306", 10),
+        ATTENDANCE_DB_NAME: process.env.ATTENDANCE_DB_NAME!,
         BEARER_TOKEN_PERSCOM: process.env.BEARER_TOKEN_PERSCOM!
     };
 }
