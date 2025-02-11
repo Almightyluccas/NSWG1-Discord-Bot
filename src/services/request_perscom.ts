@@ -61,16 +61,18 @@ export interface Form1Submission {
 }
 
 export interface AcceptedUsers {
-    name: string;
-    id: number;
+    discord_name: string;
+    first_name: string;
+    user_id: number;
     preferred_position: string;
     form_id?: number;
     date_of_birth?: string;
 }
 
 export interface DeniedUsers {
-    name: string;
-    id: number;
+    discord_name: string;
+    first_name: string;
+    user_id: number;
     preferred_position: string;
     form_id?: number;
     date_of_birth?: string;
@@ -108,8 +110,9 @@ export class PerscomService {
                 const matchedStatus = statusData.find(status => status.id === statusId);
                 if (matchedStatus) {
                     activeUsers.push({
-                        name: submission.first_name,
-                        id: submission.user_id,
+                        discord_name: submission.discord_name,
+                        first_name: submission.first_name,
+                        user_id: submission.user_id,
                         preferred_position: submission.preferred_position,
                         form_id: submission.form_id,
                         date_of_birth: submission.date_of_birth,
@@ -212,16 +215,16 @@ export class PerscomService {
             };
 
             try {
-                const response = await fetch(`https://api.perscom.io/v2/users/${user.id}`, options);
+                const response = await fetch(`https://api.perscom.io/v2/users/${user.user_id}`, options);
                 if (!response.ok) {
                     const errorMsg = await response.text();
-                    console.error(`Failed to delete user ${user.name}: ${response.status} ${response.statusText} - ${errorMsg}`);
+                    console.error(`Failed to delete user ${user.first_name}: ${response.status} ${response.statusText} - ${errorMsg}`);
                     continue;
                 }
                 const data = await response.json();
-                console.log(`Deleted user ${user.name}:`, data);
+                console.log(`Deleted user ${user.first_name}:`, data);
             } catch (err) {
-                console.error(`Error deleting user ${user.name}:`, err);
+                console.error(`Error deleting user ${user.first_name}:`, err);
             }
         }
     }

@@ -221,7 +221,7 @@ export class NotificationService {
     
             const newAcceptedUserDetails = newAcceptedUsers.map(user => ({
                 ...user,
-                discord_name: form1DataMap.get(user.id) || 'Not Found',
+                discord_name: form1DataMap.get(user.user_id) || 'Not Found',
             }));
     
             const guild = this.client.guilds.cache.get(channel.guild.id);
@@ -233,7 +233,7 @@ export class NotificationService {
             const discordUsers = await this.getGuildMembers(guild);
     
             const newAcceptedUserDetailsWithDiscordId = newAcceptedUserDetails.map(user => {
-                const formData = data.find(d => d.user_id === user.id);
+                const formData = data.find(d => d.user_id === user.user_id);
                 const discordUser = this.findDiscordUser(discordUsers, user.discord_name, formData?.first_name);
                 return {
                     ...user,
@@ -262,7 +262,7 @@ export class NotificationService {
             const form1DataMap = new Map(data.map(submission => [submission.user_id, submission.discord_name]));
             const deniedUserDetails = newDeniedUsers.map(user => ({
                 ...user,
-                discord_name: form1DataMap.get(user.id) || 'Not Found',
+                discord_name: form1DataMap.get(user.user_id) || 'Not Found',
             }));
     
             const guild = this.client.guilds.cache.get(channel.guild.id);
@@ -274,7 +274,7 @@ export class NotificationService {
             const discordUsers = await this.getGuildMembers(guild);
     
             const deniedUserDetailsWithDiscordId = deniedUserDetails.map(user => {
-                const formData = data.find(d => d.user_id === user.id);
+                const formData = data.find(d => d.user_id === user.user_id);
                 const discordUser = this.findDiscordUser(discordUsers, user.discord_name, formData?.first_name);
                 return {
                     ...user,
