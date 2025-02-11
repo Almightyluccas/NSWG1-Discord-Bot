@@ -68,7 +68,7 @@ export class NotificationService {
         }
     }
 
-    private findDiscordUser(discordUsers: DiscordUser[], savedDiscordName: string): DiscordUser | undefined {
+    private findDiscordUser(discordUsers: DiscordUser[], savedDiscordName: string, firstName?: string): DiscordUser | undefined {
         const nameToMatch = savedDiscordName.split(' ')[0];
         let user = discordUsers.find(user => user.username === nameToMatch);
         
@@ -80,18 +80,19 @@ export class NotificationService {
             );
         }
 
-        if (!user) {
+        if (!user && firstName) {
             user = discordUsers.find(user => 
-                user.username.toLowerCase().includes(nameToMatch.toLowerCase()) ||
-                (user.nickname && user.nickname.toLowerCase().includes(nameToMatch.toLowerCase())) ||
-                user.displayName.toLowerCase().includes(nameToMatch.toLowerCase())
+                user.username.toLowerCase().includes(firstName.toLowerCase()) ||
+                (user.nickname && user.nickname.toLowerCase().includes(firstName.toLowerCase())) ||
+                user.displayName.toLowerCase().includes(firstName.toLowerCase())
             );
         }
 
         if (!user) {
             user = discordUsers.find(user => 
-                (user.nickname && user.nickname.toLowerCase() === savedDiscordName.toLowerCase()) ||
-                user.displayName.toLowerCase() === savedDiscordName.toLowerCase()
+                user.username.toLowerCase().includes(nameToMatch.toLowerCase()) ||
+                (user.nickname && user.nickname.toLowerCase().includes(nameToMatch.toLowerCase())) ||
+                user.displayName.toLowerCase().includes(nameToMatch.toLowerCase())
             );
         }
 
@@ -232,7 +233,8 @@ export class NotificationService {
             const discordUsers = await this.getGuildMembers(guild);
     
             const newAcceptedUserDetailsWithDiscordId = newAcceptedUserDetails.map(user => {
-                const discordUser = this.findDiscordUser(discordUsers, user.discord_name);
+                const formData = data.find(d => d.user_id === user.id);
+                const discordUser = this.findDiscordUser(discordUsers, user.discord_name, formData?.first_name);
                 return {
                     ...user,
                     discord_id: discordUser ? discordUser.discord_id : 'Not Found',
@@ -272,7 +274,8 @@ export class NotificationService {
             const discordUsers = await this.getGuildMembers(guild);
     
             const deniedUserDetailsWithDiscordId = deniedUserDetails.map(user => {
-                const discordUser = this.findDiscordUser(discordUsers, user.discord_name);
+                const formData = data.find(d => d.user_id === user.id);
+                const discordUser = this.findDiscordUser(discordUsers, user.discord_name, formData?.first_name);
                 return {
                     ...user,
                     discord_id: discordUser ? discordUser.discord_id : 'Not Found',
