@@ -213,10 +213,21 @@ async function fetchGuildMembers(guild: Guild) {
             return Array.from(guild.members.cache.values());
         }
 
-        console.log(`Cache empty for ${guild.name}, fetching from Discord API...`);
+        if (guild.features.includes('COMMUNITY')) {
+            console.log(`${guild.name} is a community server, attempting chunk-based fetch...`);
+            try {
+                const members = await guild.members.fetch({ withPresences: false });
+                console.log(`Successfully fetched ${members.size} members from community server ${guild.name}`);
+                return Array.from(members.values());
+            } catch (chunkError) {
+                console.error(`Chunk fetch failed for community server ${guild.name}, falling back to list-based fetch:`, chunkError);
+            }
+        }
+
+        console.log(`Fetching members for ${guild.name} using regular fetch...`);
         const members = await guild.members.fetch({
-            time: 60000,
-            withPresences: true
+            time: 120000, 
+            withPresences: false
         });
         
         console.log(`Successfully fetched ${members.size} members from ${guild.name}`);
@@ -232,9 +243,22 @@ async function fetchGuildMembers(guild: Guild) {
         if (error instanceof Error) {
             console.error('Error details:', error.message);
             if ('code' in error) {
-                console.error('Discord error code:', (error as any).code);
+                const errorCode = (error as any).code;
+                console.error('Discord error code:', errorCode);
+                
+                if (errorCode === 50001) {
+                    console.error('Missing access - Bot lacks necessary permissions');
+                } else if (errorCode === 50013) {
+                    console.error('Missing permissions - Bot needs additional permissions');
+                }
             }
         }
+
+        if (guild.members.cache.size > 0) {
+            console.warn(`Falling back to cached members (${guild.members.cache.size} members) for ${guild.name}`);
+            return Array.from(guild.members.cache.values());
+        }
+        
         return null;
     }
 }
