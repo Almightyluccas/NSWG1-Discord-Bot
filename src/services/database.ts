@@ -14,7 +14,11 @@ export class DatabaseService {
 
     public async putAcceptedUsersTable(users: AcceptedUsers[]): Promise<void> {
         const query = 'INSERT INTO accepted_users (name, user_id, preferred_position) VALUES ?';
-        const values = users.map(user => [user.name, user.id, user.preferred_position]);
+        const values = users.map(user => [
+            user.first_name, 
+            user.user_id, 
+            user.preferred_position
+        ]);
         try {
             await this.connection.query(query, [values]);
         } catch (err) {
@@ -48,13 +52,14 @@ export class DatabaseService {
     }
 
     public async getUsersDatabase(): Promise<AcceptedUsers[]> {
-        const query = 'SELECT name, user_id AS id, preferred_position FROM accepted_users';
+        const query = 'SELECT name, user_id, preferred_position FROM accepted_users';
         try {
             const [results] = await this.connection.query(query);
-            return (results as AcceptedUsers[]).map(row => ({
-                name: row.name,
-                id: row.id,
-                preferred_position: row.preferred_position,
+            return (results as any[]).map(row => ({
+                first_name: row.name,     
+                discord_name: '',         
+                user_id: row.user_id,  
+                preferred_position: row.preferred_position
             }));
         } catch (err) {
             console.error("Error fetching accepted users:", err);
@@ -62,11 +67,13 @@ export class DatabaseService {
         }
     }
 
-    public async deleteOldForms(deniedUsers: DeniedUsers[]): Promise<void> {
+    public async deleteOldForms(users: DeniedUsers[]): Promise<void> {
         const query = 'DELETE FROM old_forms WHERE form_id = ?';
         try {
-            for (const user of deniedUsers) {
-                await this.connection.query(query, [user.form_id]);
+            for (const user of users) {
+                if (user.form_id) {
+                    await this.connection.query(query, [user.form_id]);
+                }
             }
         } catch (err) {
             console.error("Error deleting old forms:", err);
@@ -78,8 +85,8 @@ export class DatabaseService {
         acceptedUsers: AcceptedUsers[],
         acceptedUsersDatabase: AcceptedUsers[]
     ): Promise<AcceptedUsers[]> {
-        const newUsers: AcceptedUsers[] = acceptedUsers.filter(
-            user => !acceptedUsersDatabase.some(dbUser => dbUser.id === user.id)
+        const newUsers = acceptedUsers.filter(
+            user => !acceptedUsersDatabase.some(dbUser => dbUser.user_id === user.user_id)
         );
 
         if (newUsers.length > 0) {
