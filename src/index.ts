@@ -10,6 +10,7 @@ async function main() {
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMembers,
                 GatewayIntentBits.GuildMessages,
+                GatewayIntentBits.GuildPresences 
             ],
         });
 
