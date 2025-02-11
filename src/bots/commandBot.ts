@@ -3,7 +3,6 @@ import { config } from "../config/config";
 import { Command } from '../interfaces/Command';
 import { messageCommand } from '../commands/message';
 import { attendanceCommand } from '../commands/attendance';
-import { handleEventButtonInteraction } from '../commands/events';
 
 const commands = [messageCommand, attendanceCommand];
 
@@ -48,12 +47,7 @@ export async function commandBot(client: Client): Promise<void> {
     });
 
     client.on(Events.InteractionCreate, async interaction => {
-        if (interaction.isButton()) {
-            if (interaction.customId.startsWith('event-')) {
-                await handleEventButtonInteraction(interaction);
-                return;
-            }
-        }
+
 
         if (!interaction.isChatInputCommand()) return;
 
