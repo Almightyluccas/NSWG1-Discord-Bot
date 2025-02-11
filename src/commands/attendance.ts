@@ -343,6 +343,9 @@ function generateCalendarEmbed(
         return record.date.getUTCFullYear() === year && record.date.getUTCMonth() === month;
     });
 
+    const overallAttendance = attendanceData.filter(record => {
+        return record.date >= TRACKING_START_DATE;
+    });
 
     const table = new Table({
         chars: {
@@ -424,11 +427,29 @@ function generateCalendarEmbed(
     calendarText += table.toString();
     calendarText += '\n```';
 
-    const attendanceRate = totalRaidDays ? Math.round((attendedRaidDays / totalRaidDays) * 100) : 0;
+    const monthlyAttendanceRate = totalRaidDays ? Math.round((attendedRaidDays / totalRaidDays) * 100) : 0;
+
+    let totalOverallRaidDays = 0;
+    let totalOverallAttendedDays = overallAttendance.length;
+
+    let currentDate = new Date(TRACKING_START_DATE);
+    const today = new Date();
+    
+    while (currentDate <= today) {
+        const dayOfWeek = currentDate.getUTCDay();
+        if (dayOfWeek === 3 || dayOfWeek === 6) { 
+            totalOverallRaidDays++;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const overallAttendanceRate = totalOverallRaidDays ? Math.round((totalOverallAttendedDays / totalOverallRaidDays) * 100) : 0;
+
     if (attendedRaidDays === 0 && totalRaidDays === 0) {
         calendarText += `\nNo attendance data available yet. Tracking begins ${TRACKING_START_DATE.toLocaleDateString()}`;
     } else {
-        calendarText += `\nAttendance Rate: ${attendanceRate}% (${attendedRaidDays}/${totalRaidDays} raids)`;
+        calendarText += `\nThis Month's Attendance: ${monthlyAttendanceRate}% (${attendedRaidDays}/${totalRaidDays} raids)`;
+        calendarText += `\nOverall Attendance: ${overallAttendanceRate}% (${totalOverallAttendedDays}/${totalOverallRaidDays} total raids)`;
     }
 
     calendar.setDescription(calendarText);

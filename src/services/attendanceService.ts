@@ -37,7 +37,7 @@ async function getConnection(): Promise<mysql.Connection> {
     return connection;
 }
 
-export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 8));
+export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 1));
 
 export interface AttendanceRecord {
     date: Date;

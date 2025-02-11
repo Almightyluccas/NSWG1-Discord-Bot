@@ -26,11 +26,20 @@ export async function commandBot(client: Client): Promise<void> {
             
             for (const guild of client.guilds.cache.values()) {
                 try {
-                    console.log(`Removing existing commands from guild: ${guild.name}`);
-                    await rest.put(
-                        Routes.applicationGuildCommands(client.user?.id || '', guild.id),
-                        { body: [] }
-                    );
+                    console.log(`Fetching existing commands from guild: ${guild.name}`);
+                    const existingCommands = await rest.get(
+                        Routes.applicationGuildCommands(client.user?.id || '', guild.id)
+                    ) as { id: string }[];
+
+                    console.log(`Found ${existingCommands.length} existing commands in ${guild.name}`);
+
+                    for (const command of existingCommands) {
+                        await rest.delete(
+                            Routes.applicationGuildCommand(client.user?.id || '', guild.id, command.id)
+                        );
+                        console.log(`Deleted command ${command.id} from ${guild.name}`);
+                    }
+
                     console.log(`Successfully removed all commands from ${guild.name}`);
                 } catch (error) {
                     console.error(`Failed to remove commands from guild ${guild.name}:`, error);
