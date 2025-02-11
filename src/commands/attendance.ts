@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType, MessageFlags } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType, MessageFlags, Guild } from "discord.js";
 import Table from 'cli-table3';
 import { Command } from "../interfaces/Command";
 import { getPlayerAttendance, AttendanceRecord, TRACKING_START_DATE } from "../services/attendanceService";
@@ -43,6 +43,8 @@ export const attendanceCommand: Command = {
 
     async execute(interaction: ChatInputCommandInteraction) {
         try {
+            await interaction.deferReply({ ephemeral: true });
+
             const requestedMonth = interaction.options.getString('month');
             const today = new Date();
             
@@ -58,20 +60,38 @@ export const attendanceCommand: Command = {
                 }
             }
 
-            const members = await interaction.guild?.members.fetch().catch(() => null);
-            
-            if (!members || members.size === 0) {
-                await interaction.reply({
-                    content: 'No members found in the server.',
-                    flags: MessageFlags.Ephemeral
+            if (!interaction.guild) {
+                await interaction.editReply({
+                    content: 'This command can only be used in a server.'
                 });
                 return;
             }
 
-            const memberList = Array.from(members.values()).map(m => ({
-                id: m.id,
-                displayName: m.displayName
-            }));
+            const guild = interaction.guild;
+            const members = await fetchGuildMembers(guild);
+            
+            if (!members || members.length === 0) {
+                await interaction.editReply({
+                    content: 'Unable to fetch server members. Please ensure the bot has the correct permissions and try again.'
+                });
+                return;
+            }
+
+            const memberList = members
+                .filter(m => !m.user.bot)
+                .map(m => ({
+                    id: m.id,
+                    displayName: m.displayName
+                }));
+
+            if (memberList.length === 0) {
+                await interaction.editReply({
+                    content: 'No members found in the server (excluding bots).'
+                });
+                return;
+            }
+
+            console.log(`Found ${memberList.length} members in the server`);
 
             async function handleMemberSelection(page: number = 0): Promise<string | null> {
                 const select = new StringSelectMenuBuilder()
@@ -82,10 +102,9 @@ export const attendanceCommand: Command = {
                 const row = new ActionRowBuilder<StringSelectMenuBuilder>()
                     .addComponents(select);
 
-                await interaction.reply({
+                await interaction.editReply({
                     content: 'Select a member to view their attendance:',
-                    components: [row],
-                    flags: MessageFlags.Ephemeral
+                    components: [row]
                 });
 
                 try {
@@ -168,20 +187,57 @@ export const attendanceCommand: Command = {
 
         } catch (error: unknown) {
             console.error('Error executing attendance command:', error);
-            if (!interaction.replied) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            
+            if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
-                    content: 'There was an error generating the attendance calendar.',
-                    flags: MessageFlags.Ephemeral
+                    content: `There was an error executing this command: ${errorMessage}`,
+                    ephemeral: true
                 }).catch(() => {});
             } else {
                 await interaction.editReply({
-                    content: 'There was an error generating the attendance calendar.',
-                    components: []
+                    content: `There was an error executing this command: ${errorMessage}`
                 }).catch(() => {});
             }
         }
     }
 };
+
+async function fetchGuildMembers(guild: Guild) {
+    try {
+        console.log(`Attempting to fetch members for server: ${guild.name} (ID: ${guild.id})`);
+        console.log(`Current cache size: ${guild.members.cache.size}`);
+        
+        if (guild.members.cache.size > 0) {
+            console.log(`Using ${guild.members.cache.size} cached members from ${guild.name}`);
+            return Array.from(guild.members.cache.values());
+        }
+
+        console.log(`Cache empty for ${guild.name}, fetching from Discord API...`);
+        const members = await guild.members.fetch({
+            time: 60000,
+            withPresences: true
+        });
+        
+        console.log(`Successfully fetched ${members.size} members from ${guild.name}`);
+        
+        const sampleMembers = Array.from(members.values()).slice(0, 3);
+        sampleMembers.forEach(member => {
+            console.log(`Sample member: ${member.user.tag} (${member.displayName})`);
+        });
+        
+        return Array.from(members.values());
+    } catch (error) {
+        console.error(`Error fetching guild members for ${guild.name}:`, error);
+        if (error instanceof Error) {
+            console.error('Error details:', error.message);
+            if ('code' in error) {
+                console.error('Discord error code:', (error as any).code);
+            }
+        }
+        return null;
+    }
+}
 
 function generateCalendarEmbed(
     memberName: string, 
