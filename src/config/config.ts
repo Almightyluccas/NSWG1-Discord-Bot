@@ -1,12 +1,14 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-const result = dotenv.config({
-    path: path.resolve(__dirname, '../../.env')
-});
+if (process.env.NODE_ENV !== 'production') {
+    const result = dotenv.config({
+        path: path.resolve(__dirname, '../../.env')
+    });
 
-if (result.error) {
-    throw new Error('Error loading .env file');
+    if (result.error) {
+        console.warn('Warning: .env file not found, will use environment variables');
+    }
 }
 
 interface Config {
