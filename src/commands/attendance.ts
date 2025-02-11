@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType, MessageFlags, Guild } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType, MessageFlags, Guild, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import Table from 'cli-table3';
 import { Command } from "../interfaces/Command";
 import { getPlayerAttendance, AttendanceRecord, TRACKING_START_DATE } from "../services/attendanceService";
@@ -32,31 +32,96 @@ export const attendanceCommand: Command = {
         .setDescription('View member attendance calendar')
         .addStringOption(option =>
             option.setName('month')
-                .setDescription('Select which month to view (up to 3 months back)')
+                .setDescription('Select which month to view')
                 .setRequired(false)
                 .addChoices(
-                    { name: '📅 Current Month', value: new Date().getMonth().toString() },
-                    { name: '⬅️ Last Month', value: ((new Date().getMonth() - 1 + 12) % 12).toString() },
-                    { name: '⬅️ Two Months Ago', value: ((new Date().getMonth() - 2 + 12) % 12).toString() },
-                    { name: '⬅️ Three Months Ago', value: ((new Date().getMonth() - 3 + 12) % 12).toString() }
-                )) as SlashCommandBuilder,
+                    { name: '📆 Choose Custom Date', value: 'custom' },
+                    { name: '⬅️ Last Month', value: 'last' },
+                    { name: '⬅️ Two Months Ago', value: 'two_months_ago' },
+                    { name: '⬅️ Three Months Ago', value: 'three_months_ago' }
+                ))
+        .addStringOption(option =>
+            option.setName('custom_date')
+                .setDescription('For custom date, enter MM/YYYY format (e.g., 02/2024)')
+                .setRequired(false)) as SlashCommandBuilder,
 
     async execute(interaction: ChatInputCommandInteraction) {
         try {
             await interaction.deferReply({ ephemeral: true });
 
-            const requestedMonth = interaction.options.getString('month');
+            const monthChoice = interaction.options.getString('month');
+            const customDate = interaction.options.getString('custom_date');
             const today = new Date();
             
             let currentYear = today.getFullYear();
             let currentMonth = today.getMonth();
 
-            if (requestedMonth !== null) {
-                const monthIndex = parseInt(requestedMonth);
-                currentMonth = monthIndex;
-                
-                if (monthIndex > today.getMonth()) {
-                    currentYear--;
+            if (monthChoice === 'custom') {
+                if (!customDate) {
+                    await interaction.editReply({
+                        content: 'When choosing custom date, you must provide a date in MM/YYYY format in the custom_date option.'
+                    });
+                    return;
+                }
+
+                const dateRegex = /^(0[1-9]|1[0-2])\/(\d{4})$/;
+                if (!dateRegex.test(customDate)) {
+                    await interaction.editReply({
+                        content: 'Invalid date format. Please use MM/YYYY format (e.g., 02/2024). Month must be two digits (01-12).'
+                    });
+                    return;
+                }
+
+                const [monthStr, yearStr] = customDate.split('/');
+                currentMonth = parseInt(monthStr) - 1;
+                currentYear = parseInt(yearStr);
+
+                const customDateObj = new Date(Date.UTC(currentYear, currentMonth, 1));
+                const trackingStartMonth = new Date(Date.UTC(TRACKING_START_DATE.getFullYear(), TRACKING_START_DATE.getMonth(), 1));
+                const todayStartOfMonth = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+
+                if (customDateObj < trackingStartMonth) {
+                    await interaction.editReply({
+                        content: `Cannot view attendance before tracking start date (${TRACKING_START_DATE.toLocaleDateString()})`
+                    });
+                    return;
+                }
+
+                if (customDateObj > todayStartOfMonth) {
+                    await interaction.editReply({
+                        content: 'Cannot view future dates'
+                    });
+                    return;
+                }
+            } else if (monthChoice) {
+                switch (monthChoice) {
+                    case 'last':
+                        if (currentMonth === 0) {
+                            currentMonth = 11;
+                            currentYear--;
+                        } else {
+                            currentMonth--;
+                        }
+                        break;
+                    case 'two_months_ago':
+                        if (currentMonth === 0) {
+                            currentMonth = 10;
+                            currentYear--;
+                        } else if (currentMonth === 1) {
+                            currentMonth = 11;
+                            currentYear--;
+                        } else {
+                            currentMonth -= 2;
+                        }
+                        break;
+                    case 'three_months_ago':
+                        if (currentMonth < 3) {
+                            currentMonth = currentMonth + 9;
+                            currentYear--;
+                        } else {
+                            currentMonth -= 3;
+                        }
+                        break;
                 }
             }
 
@@ -220,7 +285,7 @@ async function fetchGuildMembers(guild: Guild) {
                 console.log(`Successfully fetched ${members.size} members from community server ${guild.name}`);
                 return Array.from(members.values());
             } catch (chunkError) {
-                console.error(`Chunk fetch failed for community server ${guild.name}, falling back to list-based fetch:`, chunkError);
+                console.error(`Chunk fetch failed for community server ${guild.name}:`, chunkError);
             }
         }
 
