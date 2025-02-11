@@ -1,15 +1,10 @@
 import { config } from 'dotenv';
-import { runMessageBot } from "./bots/runMessageBot";
-import { shutDownBot } from "./utils/shutDownBot";
+import { applicationBot } from "./bots/applicationBot";
 import { Client, GatewayIntentBits } from "discord.js";
-
-interface AllClients {
-    messageBotClient: Client;
-}
 
 config({ path: '../.env' });
 
-async function main(): Promise<AllClients> {
+async function main() {
     try {
         const client = new Client({
             intents: [
@@ -18,24 +13,16 @@ async function main(): Promise<AllClients> {
                 GatewayIntentBits.GuildMessages,
             ],
         });
-        const messageBotClient = await runMessageBot(client);
-        return { messageBotClient };
+
+        await applicationBot(client);
+
+        process.on('SIGINT', () => process.exit(0));
+        process.on('SIGTERM', () => process.exit(0));
+
     } catch (error) {
         console.error('An error occurred in the bot:', error);
         process.exit(1);
     }
 }
 
-main().then(async (client: AllClients): Promise<void> => {
-    const shutdown = async () => {
-        await shutDownBot(client.messageBotClient);
-        process.exit(0);
-    };
-
-    process.on('SIGINT', shutdown);
-    process.on('SIGTERM', shutdown);
-
-    // setTimeout(async () => {
-    //     await shutdown();
-    // }, 60000);
-});
+main();

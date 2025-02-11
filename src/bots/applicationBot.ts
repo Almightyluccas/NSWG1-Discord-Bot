@@ -1,32 +1,16 @@
 import { Client } from "discord.js";
 import mysql from "mysql2";
-import { PerscomService, AcceptedUsers, DeniedUsers, Form1Submission } from "../utils/request_perscom";
-import { DatabaseService, FormIdsTable } from "../utils/database";
-import { notifyNewApplications } from "../utils/newApplication";
-import { notifyAcceptedUsers } from "../utils/acceptedApplication";
-import { notifyDeniedUsers } from "../utils/deniedApplication";
-
-const TOKEN = process.env.DISCORD_TOKEN;
-const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
-const NEW_SUBMISSIONS_CHANNEL_ID = process.env.NEW_SUBMISSIONS_CHANNEL_ID;
-const DB_USERNAME = process.env.DB_USERNAME;
-const DB_PASSWORD = process.env.DB_PASSWORD;
-const DB_HOST = process.env.DB_HOST;
-const DB_PORT = parseInt(process.env.DB_PORT || "3306", 10);
-const DB_NAME = process.env.DB_NAME;
-const BEARER_TOKEN = process.env.BEARER_TOKEN_PERSCOM;
-
-if (!TOKEN) {
-    console.error("Error: DISCORD_TOKEN not found in the environment.");
-    process.exit(1);
-}
+import { PerscomService, AcceptedUsers, DeniedUsers, Form1Submission } from "../services/request_perscom";
+import { DatabaseService, FormIdsTable } from "../services/database";
+import { NotificationService } from "../services/notificationService";
+import { config } from "../config/config";
 
 const pool = mysql.createPool({
-    host: DB_HOST,
-    port: DB_PORT,
-    user: DB_USERNAME,
-    password: DB_PASSWORD,
-    database: DB_NAME,
+    host: config.DB_HOST,
+    port: config.DB_PORT,
+    user: config.DB_USERNAME,
+    password: config.DB_PASSWORD,
+    database: config.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
@@ -34,13 +18,22 @@ const pool = mysql.createPool({
 
 const poolPromise = pool.promise();
 
-export async function runMessageBot(client: Client) {
+export async function applicationBot(client: Client) {
+    const notificationService = new NotificationService(
+        client,
+        config.DISCORD_CHANNEL_ID,
+        config.NEW_SUBMISSIONS_CHANNEL_ID
+    );
+
     client.once("ready", () => {
-        console.log(`Bot has logged in as ${client.user?.tag}`);
-        setInterval(sendMessageTask, 30000);
+        console.log(`Application Bot has logged in as ${client.user?.tag}`);
+        setInterval(sendMessageTask, 300000);
     });
 
     async function sendMessageTask(): Promise<void> {
+        const startTime = new Date();
+        console.log(`Application Bot running check at ${startTime.toLocaleString()}`);
+        
         let connection;
         try {
             connection = await poolPromise.getConnection();
@@ -50,7 +43,7 @@ export async function runMessageBot(client: Client) {
         }
 
         try {
-            const perscomService: PerscomService = new PerscomService(BEARER_TOKEN!);
+            const perscomService: PerscomService = new PerscomService(config.BEARER_TOKEN_PERSCOM);
             const databaseService: DatabaseService = new DatabaseService(connection);
 
             await perscomService.clearCache();
@@ -66,7 +59,7 @@ export async function runMessageBot(client: Client) {
 
             if (newSubmissions.length !== 0) {
                 await databaseService.putFormIdsTable(newSubmissions);
-                await notifyNewApplications(newSubmissions, client, NEW_SUBMISSIONS_CHANNEL_ID!);
+                await notificationService.notifyNewApplications(newSubmissions);
             }
 
             const acceptedUsersDatabase: AcceptedUsers[] = await databaseService.getUsersDatabase();
@@ -77,17 +70,18 @@ export async function runMessageBot(client: Client) {
             );
 
             const deniedUsers: DeniedUsers[] = await perscomService.getSubmissionStatus(data, 8);
-            console.log("Denied Users:", deniedUsers);
-
             if (deniedUsers.length > 0) {
-                await notifyDeniedUsers(deniedUsers, data, client, CHANNEL_ID!);
+                console.log("Denied Users:", deniedUsers);
+                await notificationService.notifyDeniedUsers(deniedUsers, data);
                 await perscomService.deleteUsers(deniedUsers);
                 await databaseService.deleteOldForms(deniedUsers);
             }
 
             if (newAcceptedUsers.length > 0) {
-                await notifyAcceptedUsers(newAcceptedUsers, data, client, CHANNEL_ID!);
+                await notificationService.notifyAcceptedUsers(newAcceptedUsers, data);
             }
+
+            console.log(`Application Bot finished check at ${new Date().toLocaleString()}`);
         } catch (error) {
             console.error("Error during sendMessageTask:", error);
         } finally {
@@ -96,7 +90,7 @@ export async function runMessageBot(client: Client) {
     }
 
     try {
-        await client.login(TOKEN);
+        await client.login(config.DISCORD_TOKEN);
     } catch (loginError) {
         console.error("Bot failed to login:", loginError);
         process.exit(1);
