@@ -3,10 +3,9 @@ import { config } from "../config/config";
 import { Command } from '../interfaces/Command';
 import { messageCommand } from '../commands/message';
 import { attendanceCommand } from '../commands/attendance';
-import { eventsCommand } from '../commands/events';
 import { handleEventButtonInteraction } from '../commands/events';
 
-const commands = [messageCommand, attendanceCommand, eventsCommand];
+const commands = [messageCommand, attendanceCommand];
 
 interface BotClient extends Client {
     commands: Collection<string, Command>;
