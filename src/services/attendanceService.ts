@@ -2,6 +2,8 @@ import mysql from 'mysql2/promise';
 import { config } from '../config/config';
 
 let connection: mysql.Connection | null = null;
+let connectionTimeout: NodeJS.Timeout | null = null;
+const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 async function getConnection(): Promise<mysql.Connection> {
     if (!connection) {
@@ -23,6 +25,16 @@ async function getConnection(): Promise<mysql.Connection> {
             }
         });
     }
+
+    // Reset the timeout whenever the connection is used
+    if (connectionTimeout) {
+        clearTimeout(connectionTimeout);
+    }
+    
+    connectionTimeout = setTimeout(async () => {
+        await cleanup();
+    }, IDLE_TIMEOUT);
+
     return connection;
 }
 
@@ -57,16 +69,22 @@ export async function getPlayerAttendance(playerNickname: string): Promise<Atten
         });
     } catch (error) {
         console.error('Error fetching player attendance:', error);
+    
         throw error;
     }
 }
 
 export async function cleanup(): Promise<void> {
     try {
+        if (connectionTimeout) {
+            clearTimeout(connectionTimeout);
+            connectionTimeout = null;
+        }
+        
         if (connection) {
             await connection.end();
             connection = null;
-            console.log('Database connection closed successfully');
+            console.log('Database connection closed due to inactivity');
         }
     } catch (error) {
         console.error('Error closing database connection:', error);
