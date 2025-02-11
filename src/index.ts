@@ -21,33 +21,13 @@ async function main() {
         client.once('ready', async () => {
             console.log(`Bot is ready! Logged in as ${client.user?.tag}`);
             console.log(`Bot is in ${client.guilds.cache.size} servers:`);
-            
-            for (const guild of client.guilds.cache.values()) {
-                console.log(`\nServer: ${guild.name} (ID: ${guild.id})`);
-                console.log(`Member count from cache: ${guild.memberCount}`);
-                
-                try {
-                    const members = await guild.members.fetch();
-                    console.log(`Successfully fetched ${members.size} members for ${guild.name}`);
-                    members.forEach(member => {
-                        if (member.nickname) {
-                            console.log(`Cached nickname for ${member.user.tag}: ${member.nickname}`);
-                        }
-                    });
-                } catch (error) {
-                    console.error(`Failed to fetch members for guild ${guild.name}:`, error);
-                }
-            }
+            client.guilds.cache.forEach(guild => {
+                console.log(`- ${guild.name} (ID: ${guild.id})`);
+            });
         });
 
-        client.on('guildCreate', async (guild) => {
+        client.on('guildCreate', (guild) => {
             console.log(`Bot joined a new server: ${guild.name} (ID: ${guild.id})`);
-            try {
-                const members = await guild.members.fetch();
-                console.log(`Cached ${members.size} members for new server ${guild.name}`);
-            } catch (error) {
-                console.error(`Failed to cache members for new server ${guild.name}:`, error);
-            }
         });
 
         await client.login(config.DISCORD_TOKEN);

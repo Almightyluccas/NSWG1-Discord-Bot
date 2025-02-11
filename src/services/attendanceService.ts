@@ -3,7 +3,7 @@ import { config } from '../config/config';
 
 let connection: mysql.Connection | null = null;
 let connectionTimeout: NodeJS.Timeout | null = null;
-const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+const IDLE_TIMEOUT = 5 * 60 * 1000; 
 
 async function getConnection(): Promise<mysql.Connection> {
     if (!connection) {
@@ -26,7 +26,6 @@ async function getConnection(): Promise<mysql.Connection> {
         });
     }
 
-    // Reset the timeout whenever the connection is used
     if (connectionTimeout) {
         clearTimeout(connectionTimeout);
     }
@@ -38,7 +37,7 @@ async function getConnection(): Promise<mysql.Connection> {
     return connection;
 }
 
-export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 8));
+export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 1));
 
 export interface AttendanceRecord {
     date: Date;

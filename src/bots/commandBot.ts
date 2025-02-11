@@ -3,8 +3,10 @@ import { config } from "../config/config";
 import { Command } from '../interfaces/Command';
 import { messageCommand } from '../commands/message';
 import { attendanceCommand } from '../commands/attendance';
+import { eventsCommand } from '../commands/events';
+import { handleEventButtonInteraction } from '../commands/events';
 
-const commands = [messageCommand, attendanceCommand];
+const commands = [messageCommand, attendanceCommand, eventsCommand];
 
 interface BotClient extends Client {
     commands: Collection<string, Command>;
@@ -47,6 +49,13 @@ export async function commandBot(client: Client): Promise<void> {
     });
 
     client.on(Events.InteractionCreate, async interaction => {
+        if (interaction.isButton()) {
+            if (interaction.customId.startsWith('event-')) {
+                await handleEventButtonInteraction(interaction);
+                return;
+            }
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         console.log(`Received command: ${interaction.commandName} in guild: ${interaction.guild?.name}`);

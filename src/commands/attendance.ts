@@ -39,19 +39,53 @@ export const attendanceCommand: Command = {
                     { name: '⬅️ Last Month', value: ((new Date().getMonth() - 1 + 12) % 12).toString() },
                     { name: '⬅️ Two Months Ago', value: ((new Date().getMonth() - 2 + 12) % 12).toString() },
                     { name: '⬅️ Three Months Ago', value: ((new Date().getMonth() - 3 + 12) % 12).toString() }
-                )) as SlashCommandBuilder,
+                ))
+        .addStringOption(option =>
+            option.setName('custom_date')
+                .setDescription('Enter a specific date (MM/YYYY format)')
+                .setRequired(false)) as SlashCommandBuilder,
 
     async execute(interaction: ChatInputCommandInteraction) {
         try {
             await interaction.deferReply({ ephemeral: true });
 
             const requestedMonth = interaction.options.getString('month');
+            const customDate = interaction.options.getString('custom_date');
             const today = new Date();
             
             let currentYear = today.getFullYear();
             let currentMonth = today.getMonth();
 
-            if (requestedMonth !== null) {
+            if (customDate) {
+                const [monthStr, yearStr] = customDate.split('/');
+                const month = parseInt(monthStr) - 1; 
+                const year = parseInt(yearStr);
+
+                if (isNaN(month) || isNaN(year) || month < 0 || month > 11 || yearStr.length !== 4) {
+                    await interaction.editReply({
+                        content: 'Invalid date format. Please use MM/YYYY format (e.g., 02/2024)'
+                    });
+                    return;
+                }
+
+                const customDateObj = new Date(year, month);
+                if (customDateObj < TRACKING_START_DATE) {
+                    await interaction.editReply({
+                        content: `Cannot view attendance before tracking start date (${TRACKING_START_DATE.toLocaleDateString()})`
+                    });
+                    return;
+                }
+
+                if (customDateObj > today) {
+                    await interaction.editReply({
+                        content: 'Cannot view future dates'
+                    });
+                    return;
+                }
+
+                currentYear = year;
+                currentMonth = month;
+            } else if (requestedMonth !== null) {
                 const monthIndex = parseInt(requestedMonth);
                 currentMonth = monthIndex;
                 

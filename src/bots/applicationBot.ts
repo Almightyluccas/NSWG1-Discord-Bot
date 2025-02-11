@@ -21,7 +21,7 @@ const poolPromise = pool.promise();
 export async function applicationBot(client: Client): Promise<void> {
     client.once("ready", () => {
         console.log(`Application Bot has logged in as ${client.user?.tag}`);
-        console.log('Starting application check scheduler (every 5 minutes)');
+        console.log('[ApplicationBot] Starting check scheduler (every 5 minutes)');
         setInterval(sendMessageTask, 300000); 
         sendMessageTask();
     });
@@ -30,7 +30,7 @@ export async function applicationBot(client: Client): Promise<void> {
 
     async function sendMessageTask(): Promise<void> {
         const startTime = new Date();
-        console.log(`[${startTime.toISOString()}] Application Bot: Starting check...`);
+        console.log(`[${startTime.toISOString()}] ApplicationBot: Starting check cycle...`);
         
         let connection;
         try {
@@ -41,9 +41,10 @@ export async function applicationBot(client: Client): Promise<void> {
             const databaseService: DatabaseService = new DatabaseService(connection);
 
             await perscomService.clearCache();
-            console.log(`[${new Date().toISOString()}] Cache cleared successfully`);
 
             const data: Form1Submission[] = await perscomService.getAllForm1Data();
+            console.log(`[${new Date().toISOString()}] ApplicationBot: Retrieved ${data.length} form submissions`);
+
             const oldSubmissions: FormIdsTable[] = await databaseService.getFormsIdsTable();
             const newSubmissions: Form1Submission[] = data.filter(
                 (newForm: Form1Submission): boolean =>
@@ -52,8 +53,8 @@ export async function applicationBot(client: Client): Promise<void> {
                     )
             );
 
-            if (newSubmissions.length !== 0) {
-                console.log(`[${new Date().toISOString()}] Found ${newSubmissions.length} new submissions`);
+            if (newSubmissions.length > 0) {
+                console.log(`[${new Date().toISOString()}] ApplicationBot: Processing ${newSubmissions.length} new submissions`);
                 await databaseService.putFormIdsTable(newSubmissions);
                 await notificationService.notifyNewApplications(newSubmissions);
             }
@@ -67,26 +68,29 @@ export async function applicationBot(client: Client): Promise<void> {
 
             const deniedUsers: DeniedUsers[] = await perscomService.getSubmissionStatus(data, 8);
             if (deniedUsers.length > 0) {
-                console.log(`[${new Date().toISOString()}] Processing ${deniedUsers.length} denied applications`);
+                console.log(`[${new Date().toISOString()}] ApplicationBot: Processing ${deniedUsers.length} denied applications`);
                 await notificationService.notifyDeniedUsers(deniedUsers, data);
                 await perscomService.deleteUsers(deniedUsers);
                 await databaseService.deleteOldForms(deniedUsers);
             }
 
             if (newAcceptedUsers.length > 0) {
-                console.log(`[${new Date().toISOString()}] Processing ${newAcceptedUsers.length} newly accepted applications`);
+                console.log(`[${new Date().toISOString()}] ApplicationBot: Processing ${newAcceptedUsers.length} newly accepted applications`);
                 await notificationService.notifyAcceptedUsers(newAcceptedUsers, data);
             }
 
             const checkDuration = Date.now() - checkStartTime;
-            console.log(`[${new Date().toISOString()}] Application Bot: Check completed successfully (Duration: ${checkDuration}ms)`);
+            console.log(`[${new Date().toISOString()}] ApplicationBot: Check cycle completed (Duration: ${checkDuration}ms)`);
 
         } catch (error) {
-            console.error(`[${new Date().toISOString()}] Error during application check:`, error);
+            console.error(`[${new Date().toISOString()}] ApplicationBot Error:`, error);
         } finally {
             if (connection) {
                 connection.release();
             }
+            const endTime = new Date();
+            const duration = endTime.getTime() - startTime.getTime();
+            console.log(`[${endTime.toISOString()}] ApplicationBot: Check cycle ended (Total duration: ${duration}ms)`);
         }
     }
 }
