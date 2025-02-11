@@ -37,7 +37,7 @@ async function getConnection(): Promise<mysql.Connection> {
     return connection;
 }
 
-export const TRACKING_START_DATE = new Date(Date.UTC(2024, 1, 1)); // February 1st, 2024 (month is 1 for February since it's 0-based)
+export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 1)); 
 
 export interface AttendanceRecord {
     date: Date;

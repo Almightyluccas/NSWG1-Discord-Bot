@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType, MessageFlags, Guild, GuildMember } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType, MessageFlags, Guild } from "discord.js";
 import Table from 'cli-table3';
 import { Command } from "../interfaces/Command";
 import { getPlayerAttendance, AttendanceRecord, TRACKING_START_DATE } from "../services/attendanceService";
@@ -32,96 +32,31 @@ export const attendanceCommand: Command = {
         .setDescription('View member attendance calendar')
         .addStringOption(option =>
             option.setName('month')
-                .setDescription('Select which month to view')
-                .setRequired(true)
+                .setDescription('Select which month to view (up to 3 months back)')
+                .setRequired(false)
                 .addChoices(
-                    { name: '📆 Choose Specific Date', value: 'custom' },
-                    { name: '⬅️ Last Month', value: 'last' },
-                    { name: '⬅️ Two Months Ago', value: 'two_months_ago' },
-                    { name: '⬅️ Three Months Ago', value: 'three_months_ago' },
-                ))
-        .addStringOption(option =>
-            option.setName('custom_date')
-                .setDescription('If choosing specific date, enter MM/YYYY format (e.g., 02/2024)')
-                .setRequired(false)) as SlashCommandBuilder,
+                    { name: '📅 Current Month', value: new Date().getMonth().toString() },
+                    { name: '⬅️ Last Month', value: ((new Date().getMonth() - 1 + 12) % 12).toString() },
+                    { name: '⬅️ Two Months Ago', value: ((new Date().getMonth() - 2 + 12) % 12).toString() },
+                    { name: '⬅️ Three Months Ago', value: ((new Date().getMonth() - 3 + 12) % 12).toString() }
+                )) as SlashCommandBuilder,
 
     async execute(interaction: ChatInputCommandInteraction) {
         try {
             await interaction.deferReply({ ephemeral: true });
 
-            const monthChoice = interaction.options.getString('month', true);
+            const requestedMonth = interaction.options.getString('month');
             const today = new Date();
             
             let currentYear = today.getFullYear();
             let currentMonth = today.getMonth();
 
-            if (monthChoice === 'custom') {
-                const customDate = interaction.options.getString('custom_date');
-                if (!customDate) {
-                    await interaction.editReply({
-                        content: 'When choosing specific date, you must provide a date in MM/YYYY format in the custom_date option.'
-                    });
-                    return;
-                }
-
-                const dateRegex = /^(0[1-9]|1[0-2])\/(\d{4})$/;
-                if (!dateRegex.test(customDate)) {
-                    await interaction.editReply({
-                        content: 'Invalid date format. Please use MM/YYYY format (e.g., 02/2024). Month must be two digits (01-12).'
-                    });
-                    return;
-                }
-
-                const [monthStr, yearStr] = customDate.split('/');
-                currentMonth = parseInt(monthStr) - 1;
-                currentYear = parseInt(yearStr);
-
-                const customDateObj = new Date(Date.UTC(currentYear, currentMonth, 1));
-                const trackingStartMonth = new Date(Date.UTC(TRACKING_START_DATE.getFullYear(), TRACKING_START_DATE.getMonth(), 1));
-                const todayStartOfMonth = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
-
-                if (customDateObj < trackingStartMonth) {
-                    await interaction.editReply({
-                        content: `Cannot view attendance before tracking start date (${TRACKING_START_DATE.toLocaleDateString()})`
-                    });
-                    return;
-                }
-
-                if (customDateObj > todayStartOfMonth) {
-                    await interaction.editReply({
-                        content: 'Cannot view future dates'
-                    });
-                    return;
-                }
-            } else {
-                switch (monthChoice) {
-                    case 'last':
-                        if (currentMonth === 0) {
-                            currentMonth = 11;
-                            currentYear--;
-                        } else {
-                            currentMonth--;
-                        }
-                        break;
-                    case 'two_months_ago':
-                        if (currentMonth === 0) {
-                            currentMonth = 10;
-                            currentYear--;
-                        } else if (currentMonth === 1) {
-                            currentMonth = 11;
-                            currentYear--;
-                        } else {
-                            currentMonth -= 2;
-                        }
-                        break;
-                    case 'three_months_ago':
-                        if (currentMonth < 3) {
-                            currentMonth = currentMonth + 9;
-                            currentYear--;
-                        } else {
-                            currentMonth -= 3;
-                        }
-                        break;
+            if (requestedMonth !== null) {
+                const monthIndex = parseInt(requestedMonth);
+                currentMonth = monthIndex;
+                
+                if (monthIndex > today.getMonth()) {
+                    currentYear--;
                 }
             }
 
@@ -285,7 +220,7 @@ async function fetchGuildMembers(guild: Guild) {
                 console.log(`Successfully fetched ${members.size} members from community server ${guild.name}`);
                 return Array.from(members.values());
             } catch (chunkError) {
-                console.error(`Chunk fetch failed for community server ${guild.name}`, chunkError);
+                console.error(`Chunk fetch failed for community server ${guild.name}, falling back to list-based fetch:`, chunkError);
             }
         }
 
@@ -298,7 +233,7 @@ async function fetchGuildMembers(guild: Guild) {
         console.log(`Successfully fetched ${members.size} members from ${guild.name}`);
         
         const sampleMembers = Array.from(members.values()).slice(0, 3);
-        sampleMembers.forEach((member: GuildMember) => {
+        sampleMembers.forEach(member => {
             console.log(`Sample member: ${member.user.tag} (${member.displayName})`);
         });
         
@@ -343,9 +278,6 @@ function generateCalendarEmbed(
         return record.date.getUTCFullYear() === year && record.date.getUTCMonth() === month;
     });
 
-    const overallAttendance = attendanceData.filter(record => {
-        return record.date >= TRACKING_START_DATE;
-    });
 
     const table = new Table({
         chars: {
@@ -408,9 +340,9 @@ function generateCalendarEmbed(
                 );
                 if (wasPresent) {
                     attendedRaidDays++;
-                    dayText = `\u001b[32;1m${dayText}\u001b[0m`;
+                    dayText = `\x1b[32;1m${dayText}\x1b[0m`;
                 } else {
-                    dayText = `\u001b[31;1m${dayText}\u001b[0m`;
+                    dayText = `\x1b[31;1m${dayText}\x1b[0m`;
                 }
             }
         }
@@ -427,37 +359,11 @@ function generateCalendarEmbed(
     calendarText += table.toString();
     calendarText += '\n```';
 
-    const monthlyAttendanceRate = totalRaidDays ? Math.round((attendedRaidDays / totalRaidDays) * 100) : 0;
-
-    let totalOverallRaidDays = 0;
-    let totalOverallAttendedDays = 0;
-    const today = new Date();
-
-    let currentDate = new Date(TRACKING_START_DATE);
-    while (currentDate <= today) {
-        const dayOfWeek = currentDate.getUTCDay();
-        if (dayOfWeek === 3 || dayOfWeek === 6) { 
-            totalOverallRaidDays++;
-            const wasPresent = overallAttendance.some(record => {
-                const recordDate = new Date(record.date);
-                return recordDate.getUTCFullYear() === currentDate.getUTCFullYear() &&
-                       recordDate.getUTCMonth() === currentDate.getUTCMonth() &&
-                       recordDate.getUTCDate() === currentDate.getUTCDate();
-            });
-            if (wasPresent) {
-                totalOverallAttendedDays++;
-            }
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    const overallAttendanceRate = totalOverallRaidDays ? Math.round((totalOverallAttendedDays / totalOverallRaidDays) * 100) : 0;
-
+    const attendanceRate = totalRaidDays ? Math.round((attendedRaidDays / totalRaidDays) * 100) : 0;
     if (attendedRaidDays === 0 && totalRaidDays === 0) {
         calendarText += `\nNo attendance data available yet. Tracking begins ${TRACKING_START_DATE.toLocaleDateString()}`;
     } else {
-        calendarText += `\nThis Month's Attendance: ${monthlyAttendanceRate}% (${attendedRaidDays}/${totalRaidDays} raids)`;
-        calendarText += `\nOverall Attendance: ${overallAttendanceRate}% (${totalOverallAttendedDays}/${totalOverallRaidDays} raids)`;
+        calendarText += `\nAttendance Rate: ${attendanceRate}% (${attendedRaidDays}/${totalRaidDays} raids)`;
     }
 
     calendar.setDescription(calendarText);

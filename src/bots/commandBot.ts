@@ -23,18 +23,31 @@ export async function commandBot(client: Client): Promise<void> {
 
         try {
             const rest = new REST().setToken(config.DISCORD_TOKEN);
-            const commandData = commands.map(command => command.data.toJSON());
-
-            console.log('Started refreshing application (/) commands.');
             
             for (const guild of client.guilds.cache.values()) {
                 try {
-                    console.log(`Registering commands for guild: ${guild.name}`);
+                    console.log(`Removing existing commands from guild: ${guild.name}`);
                     await rest.put(
                         Routes.applicationGuildCommands(client.user?.id || '', guild.id),
-                        { body: commandData },
+                        { body: [] }
                     );
-                    console.log(`Successfully registered commands for ${guild.name}`);
+                    console.log(`Successfully removed all commands from ${guild.name}`);
+                } catch (error) {
+                    console.error(`Failed to remove commands from guild ${guild.name}:`, error);
+                }
+            }
+
+            console.log('Started registering new application (/) commands.');
+            const commandData = commands.map(command => command.data.toJSON());
+            
+            for (const guild of client.guilds.cache.values()) {
+                try {
+                    console.log(`Registering new commands for guild: ${guild.name}`);
+                    await rest.put(
+                        Routes.applicationGuildCommands(client.user?.id || '', guild.id),
+                        { body: commandData }
+                    );
+                    console.log(`Successfully registered new commands for ${guild.name}`);
                 } catch (error) {
                     console.error(`Failed to register commands for guild ${guild.name}:`, error);
                 }
@@ -42,7 +55,7 @@ export async function commandBot(client: Client): Promise<void> {
 
             console.log('Finished refreshing all guild commands.');
         } catch (error) {
-            console.error('Error registering slash commands:', error);
+            console.error('Error managing slash commands:', error);
         }
     });
 
