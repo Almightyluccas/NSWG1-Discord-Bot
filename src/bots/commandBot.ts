@@ -5,6 +5,12 @@ import { messageCommand } from '../commands/message';
 import { attendanceCommand } from '../commands/attendance';
 
 const commands = [messageCommand, attendanceCommand];
+const commandIdsToDelete = [
+    '1338949454220230699',
+    '1338774856145305641',
+    '1338949454220230698',
+    '1338757969935859754'
+];
 
 interface BotClient extends Client {
     commands: Collection<string, Command>;
@@ -24,6 +30,24 @@ export async function commandBot(client: Client): Promise<void> {
         try {
             const rest = new REST().setToken(config.DISCORD_TOKEN);
             
+            for (const guild of client.guilds.cache.values()) {
+                try {
+                    console.log(`Deleting specific commands from guild: ${guild.name}`);
+                    for (const commandId of commandIdsToDelete) {
+                        try {
+                            await rest.delete(
+                                Routes.applicationGuildCommand(client.user?.id || '', guild.id, commandId)
+                            );
+                            console.log(`Deleted specific command ${commandId} from ${guild.name}`);
+                        } catch (error) {
+                            console.error(`Failed to delete command ${commandId} from ${guild.name}:`, error);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Failed to process guild ${guild.name}:`, error);
+                }
+            }
+
             for (const guild of client.guilds.cache.values()) {
                 try {
                     console.log(`Fetching existing commands from guild: ${guild.name}`);
