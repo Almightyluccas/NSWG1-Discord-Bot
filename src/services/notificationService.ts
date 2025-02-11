@@ -71,17 +71,29 @@ export class NotificationService {
     private findDiscordUser(discordUsers: DiscordUser[], savedDiscordName: string, firstName?: string): DiscordUser | undefined {
         console.log('Searching for user:', { savedDiscordName, firstName });
         
-        const cleanDiscordName = savedDiscordName.replace(/\s+/g, '');
+        const cleanDiscordName = savedDiscordName.replace(/\s+/g, '').toLowerCase();
         
         let user = discordUsers.find(user => 
-            user.username.toLowerCase() === cleanDiscordName.toLowerCase()
+            user.username.toLowerCase() === cleanDiscordName
         );
 
+        if (!user) {
+            const potentialMatches = discordUsers.filter(user => 
+                user.username.toLowerCase().startsWith(cleanDiscordName)
+            );
+
+            if (potentialMatches.length > 0) {
+                user = potentialMatches.sort((a, b) => 
+                    Math.abs(a.username.length - cleanDiscordName.length) - 
+                    Math.abs(b.username.length - cleanDiscordName.length)
+                )[0];
+            }
+        }
+
         if (!user && firstName) {
-            const cleanFirstName = firstName.replace('.', '').trim();
             user = discordUsers.find(user => 
-                user.displayName.toLowerCase() === cleanFirstName.toLowerCase() ||
-                (user.nickname && user.nickname.toLowerCase() === cleanFirstName.toLowerCase())
+                user.displayName === firstName ||
+                user.nickname === firstName
             );
         }
 
