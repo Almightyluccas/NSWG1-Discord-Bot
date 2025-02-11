@@ -69,31 +69,35 @@ export class NotificationService {
     }
 
     private findDiscordUser(discordUsers: DiscordUser[], savedDiscordName: string, firstName?: string): DiscordUser | undefined {
-        const nameToMatch = savedDiscordName.split(' ')[0];
-        let user = discordUsers.find(user => user.username === nameToMatch);
+        console.log('Searching for user:', { savedDiscordName, firstName });
         
-        if (!user) {
-            const serverNameToMatch = savedDiscordName.split(' ').slice(1).join(' ');
-            user = discordUsers.find(user => 
-                (user.nickname && user.nickname.toLowerCase().includes(serverNameToMatch.toLowerCase())) ||
-                user.displayName.toLowerCase().includes(serverNameToMatch.toLowerCase())
-            );
-        }
+        const cleanDiscordName = savedDiscordName.replace(/\s+/g, '');
+        
+        let user = discordUsers.find(user => 
+            user.username.toLowerCase() === cleanDiscordName.toLowerCase()
+        );
 
         if (!user && firstName) {
+            const cleanFirstName = firstName.replace('.', '').trim();
             user = discordUsers.find(user => 
-                user.username.toLowerCase().includes(firstName.toLowerCase()) ||
-                (user.nickname && user.nickname.toLowerCase().includes(firstName.toLowerCase())) ||
-                user.displayName.toLowerCase().includes(firstName.toLowerCase())
+                user.displayName.toLowerCase() === cleanFirstName.toLowerCase() ||
+                (user.nickname && user.nickname.toLowerCase() === cleanFirstName.toLowerCase())
             );
         }
 
-        if (!user) {
-            user = discordUsers.find(user => 
-                user.username.toLowerCase().includes(nameToMatch.toLowerCase()) ||
-                (user.nickname && user.nickname.toLowerCase().includes(nameToMatch.toLowerCase())) ||
-                user.displayName.toLowerCase().includes(nameToMatch.toLowerCase())
-            );
+        if (user) {
+            console.log('Found user:', {
+                originalDiscordName: savedDiscordName,
+                cleanedDiscordName: cleanDiscordName,
+                searchedFirstName: firstName,
+                foundUser: {
+                    username: user.username,
+                    displayName: user.displayName,
+                    nickname: user.nickname
+                }
+            });
+        } else {
+            console.log('No user found - will use discord_name without mention');
         }
 
         return user;
