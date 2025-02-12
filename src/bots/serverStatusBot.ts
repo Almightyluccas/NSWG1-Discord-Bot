@@ -38,19 +38,17 @@ export async function serverStatusBot(client: Client): Promise<void> {
         if (!statusChannel) return;
 
         try {
-            const embed = createStatusEmbed(data);
-
             if (lastMessageId) {
                 try {
-                    const message = await statusChannel.messages.fetch(lastMessageId);
-                    await message.edit({ embeds: [embed] });
-                    return;
+                    const oldMessage = await statusChannel.messages.fetch(lastMessageId);
+                    await oldMessage.delete();
                 } catch (error) {
-                    console.error('Failed to edit existing status message, will send new one');
-                    lastMessageId = null;
+                    console.error('Failed to delete old status message:', error);
                 }
+                lastMessageId = null;
             }
 
+            const embed = createStatusEmbed(data);
             const message = await statusChannel.send({ embeds: [embed] });
             lastMessageId = message.id;
         } catch (error) {
@@ -68,7 +66,6 @@ export async function serverStatusBot(client: Client): Promise<void> {
             statusChannel = channel;
             console.log('Server status channel initialized');
 
-            // Initial status update
             const initialData = serverStatus.getCurrentData();
             await updateStatusMessage(initialData);
         } catch (error) {
@@ -76,7 +73,6 @@ export async function serverStatusBot(client: Client): Promise<void> {
         }
     });
 
-    // Listen for server status updates
     serverStatus.on('serverDataUpdated', async (data: ServerData) => {
         await updateStatusMessage(data);
     });
