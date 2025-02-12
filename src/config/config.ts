@@ -23,9 +23,11 @@ interface Config {
     DISCORD_TOKEN: string;
     APPLICATION_DISCORD_CHANNEL_ID: string;
     NEW_APPLICATION_CHANNEL_ID: string;
+    SERVER_STATUS_DISCORD_CHANNEL: string;
     APPLICATION_DB: DbConfig;
     ATTENDANCE_DB: DbConfig;
     BEARER_TOKEN_PERSCOM: string;
+    API_KEY: string;
 }
 
 function validateConfig(): Config {
@@ -33,6 +35,7 @@ function validateConfig(): Config {
         'DISCORD_TOKEN',
         'APPLICATION_DISCORD_CHANNEL_ID',
         'NEW_APPLICATION_CHANNEL_ID',
+        'SERVER_STATUS_DISCORD_CHANNEL',
         'APPLICATION_DB_USERNAME',
         'APPLICATION_DB_PASSWORD',
         'APPLICATION_DB_HOST',
@@ -41,7 +44,8 @@ function validateConfig(): Config {
         'ATTENDANCE_DB_PASSWORD',
         'ATTENDANCE_DB_HOST',
         'ATTENDANCE_DB_NAME',
-        'BEARER_TOKEN_PERSCOM'
+        'BEARER_TOKEN_PERSCOM',
+        'API_KEY'
     ];
 
     const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -53,6 +57,7 @@ function validateConfig(): Config {
         DISCORD_TOKEN: process.env.DISCORD_TOKEN!,
         APPLICATION_DISCORD_CHANNEL_ID: process.env.APPLICATION_DISCORD_CHANNEL_ID!,
         NEW_APPLICATION_CHANNEL_ID: process.env.NEW_APPLICATION_CHANNEL_ID!,
+        SERVER_STATUS_DISCORD_CHANNEL: process.env.SERVER_STATUS_DISCORD_CHANNEL!,
         APPLICATION_DB: {
             username: process.env.APPLICATION_DB_USERNAME!,
             password: process.env.APPLICATION_DB_PASSWORD!,
@@ -67,7 +72,8 @@ function validateConfig(): Config {
             port: parseInt(process.env.ATTENDANCE_DB_PORT || "3306", 10),
             database: process.env.ATTENDANCE_DB_NAME!
         },
-        BEARER_TOKEN_PERSCOM: process.env.BEARER_TOKEN_PERSCOM!
+        BEARER_TOKEN_PERSCOM: process.env.BEARER_TOKEN_PERSCOM!,
+        API_KEY: process.env.API_KEY!
     };
 }
 

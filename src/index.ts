@@ -1,7 +1,11 @@
 import { applicationBot } from "./bots/applicationBot";
 import { Client, GatewayIntentBits } from "discord.js";
 import { commandBot } from "./bots/commandBot";
+import { serverStatusBot } from "./bots/serverStatusBot";
 import { config } from "./config/config";
+import { app } from "./services/serverStatusService";
+
+const API_PORT = process.env.PORT || 3000;
 
 async function main() {
     try {
@@ -17,8 +21,13 @@ async function main() {
 
         await applicationBot(client);
         await commandBot(client);
+        await serverStatusBot(client);
 
         await client.login(config.DISCORD_TOKEN);
+
+        app.listen(API_PORT, () => {
+            console.log(`API server listening on port ${API_PORT}`);
+        });
 
         const shutdown = () => {
             console.log('Shutting down gracefully...');
@@ -36,5 +45,5 @@ async function main() {
 }
 
 main().then(() => {
-    console.log('Bot started successfully')
-}).catch(e => console.error('Error starting bot:', e));
+    console.log('Bot and API server started successfully')
+}).catch(e => console.error('Error starting services:', e));
