@@ -14,9 +14,9 @@ export async function serverStatusBot(client: Client): Promise<void> {
             .setTimestamp();
 
         if (data.onlinePlayers === 0) {
-            embed.setDescription('😴 Server is currently empty');
+            embed.setDescription('Server is currently empty');
         } else {
-            embed.setDescription('🎮 Server is active!')
+            embed.setDescription('Server is active!')
                 .addFields(
                     { 
                         name: 'Players Online', 
