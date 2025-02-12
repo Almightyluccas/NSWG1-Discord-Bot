@@ -1,40 +1,84 @@
 import mysql from 'mysql2/promise';
 import { config } from '../config/config';
 
-let connection: mysql.Connection | null = null;
-let connectionTimeout: NodeJS.Timeout | null = null;
-const IDLE_TIMEOUT = 5 * 60 * 1000; 
+class DatabaseConnectionManager {
+    private static instance: DatabaseConnectionManager;
+    private connection: mysql.Connection | null = null;
+    private connectionPromise: Promise<mysql.Connection> | null = null;
+    private connectionTimeout: NodeJS.Timeout | null = null;
+    private readonly IDLE_TIMEOUT = 5 * 60 * 1000;
 
-async function getConnection(): Promise<mysql.Connection> {
-    if (!connection) {
-        connection = await mysql.createConnection({
-            host: config.ATTENDANCE_DB_HOST,
-            user: config.ATTENDANCE_DB_USERNAME,
-            password: config.ATTENDANCE_DB_PASSWORD,
-            database: config.ATTENDANCE_DB_NAME,
-            enableKeepAlive: true,
-            keepAliveInitialDelay: 0
+    private constructor() {}
+
+    public static getInstance(): DatabaseConnectionManager {
+        if (!DatabaseConnectionManager.instance) {
+            DatabaseConnectionManager.instance = new DatabaseConnectionManager();
+        }
+        return DatabaseConnectionManager.instance;
+    }
+
+    public async getConnection(): Promise<mysql.Connection> {
+        if (this.connection) {
+            this.refreshTimeout();
+            return this.connection;
+        }
+
+        if (this.connectionPromise) {
+            return await this.connectionPromise;
+        }
+
+        this.connectionPromise = this.createConnection();
+        try {
+            this.connection = await this.connectionPromise;
+            this.refreshTimeout();
+            return this.connection;
+        } finally {
+            this.connectionPromise = null;
+        }
+    }
+
+    private async createConnection(): Promise<mysql.Connection> {
+        const connection = await mysql.createConnection({
+            host: config.ATTENDANCE_DB.host,
+            user: config.ATTENDANCE_DB.username,
+            password: config.ATTENDANCE_DB.password,
+            database: config.ATTENDANCE_DB.database,
+            multipleStatements: true
         });
 
         connection.on('error', async (err) => {
             console.error('Database connection error:', err);
             if (err.code === 'PROTOCOL_CONNECTION_LOST') {
                 console.log('Reconnecting to database...');
-                connection = null;
-                await getConnection();
+                this.connection = null;
+                await this.cleanup();
             }
         });
+
+        return connection;
     }
 
-    if (connectionTimeout) {
-        clearTimeout(connectionTimeout);
-    }
-    
-    connectionTimeout = setTimeout(async () => {
-        await cleanup();
-    }, IDLE_TIMEOUT);
+    private refreshTimeout(): void {
+        if (this.connectionTimeout) {
+            clearTimeout(this.connectionTimeout);
+        }
 
-    return connection;
+        this.connectionTimeout = setTimeout(async () => {
+            await this.cleanup();
+        }, this.IDLE_TIMEOUT);
+    }
+
+    public async cleanup(): Promise<void> {
+        if (this.connectionTimeout) {
+            clearTimeout(this.connectionTimeout);
+            this.connectionTimeout = null;
+        }
+
+        if (this.connection) {
+            await this.connection.end();
+            this.connection = null;
+        }
+    }
 }
 
 export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 1));
@@ -46,9 +90,11 @@ export interface AttendanceRecord {
     status?: string;
 }
 
+const dbManager = DatabaseConnectionManager.getInstance();
+
 export async function getPlayerAttendance(playerNickname: string): Promise<AttendanceRecord[]> {
     try {
-        const conn = await getConnection();
+        const conn = await dbManager.getConnection();
         
         const [rows] = await conn.query<mysql.RowDataPacket[]>(
             'SELECT date, player, minutes, raid_type, status FROM RaidActivity WHERE player = ?',
@@ -57,10 +103,8 @@ export async function getPlayerAttendance(playerNickname: string): Promise<Atten
 
         return rows.map(row => {
             const timestamp = typeof row.date === 'string' ? parseInt(row.date) : Number(row.date);
-            const date = new Date(timestamp);
-            
             return {
-                date,
+                date: new Date(timestamp),
                 minutes: Number(row.minutes),
                 raid_type: row.raid_type,
                 status: row.status
@@ -68,36 +112,6 @@ export async function getPlayerAttendance(playerNickname: string): Promise<Atten
         });
     } catch (error) {
         console.error('Error fetching player attendance:', error);
-    
         throw error;
     }
 }
-
-export async function cleanup(): Promise<void> {
-    try {
-        if (connectionTimeout) {
-            clearTimeout(connectionTimeout);
-            connectionTimeout = null;
-        }
-        
-        if (connection) {
-            await connection.end();
-            connection = null;
-            console.log('Database connection closed due to inactivity');
-        }
-    } catch (error) {
-        console.error('Error closing database connection:', error);
-    }
-}
-
-process.once('SIGINT', async () => {
-    console.log('Cleaning up attendance service connections...');
-    await cleanup();
-    process.exit(0);
-});
-
-process.once('SIGTERM', async () => {
-    console.log('Cleaning up attendance service connections...');
-    await cleanup();
-    process.exit(0);
-});

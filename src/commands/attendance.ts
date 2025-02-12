@@ -1,4 +1,5 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType, MessageFlags, Guild, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType,
+    Guild } from "discord.js";
 import Table from 'cli-table3';
 import { Command } from "../interfaces/Command";
 import { getPlayerAttendance, AttendanceRecord, TRACKING_START_DATE } from "../services/attendanceService";
@@ -47,7 +48,7 @@ export const attendanceCommand: Command = {
 
     async execute(interaction: ChatInputCommandInteraction) {
         try {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply();
 
             const monthChoice = interaction.options.getString('month');
             const customDate = interaction.options.getString('custom_date');
@@ -257,7 +258,6 @@ export const attendanceCommand: Command = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: `There was an error executing this command: ${errorMessage}`,
-                    ephemeral: true
                 }).catch(() => {});
             } else {
                 await interaction.editReply({
@@ -374,11 +374,22 @@ function generateCalendarEmbed(
         content: day,
         hAlign: 'center'
     })));
-
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    let currentWeek: any[] = new Array(7).fill('  ');
+    new Date(Date.UTC(year, month, 1));
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    let currentWeek = new Array(7).fill({ content: '  ', hAlign: 'center' });
     let totalRaidDays = 0;
     let attendedRaidDays = 0;
+
+    const isRaidDay = (date: Date): boolean => {
+        const dayOfWeek = date.getUTCDay();
+        const hours = date.getUTCHours();
+        
+        if ((dayOfWeek === 4 || dayOfWeek === 0) && hours < 2) {
+            return true;
+        }
+        return (dayOfWeek === 3 || dayOfWeek === 6) && hours >= 2;
+
+    };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
         const startOfDay = new Date(Date.UTC(year, month, date2.getUTCDate(), 0, 0, 0));
@@ -391,16 +402,15 @@ function generateCalendarEmbed(
     const lastDayToCount = isCurrentMonth ? new Date() : new Date(Date.UTC(year, month + 1, 0));
 
     for (let day = 1; day <= lastDay; day++) {
-        const date = new Date(Date.UTC(year, month, day));
+        const date = new Date(Date.UTC(year, month, day, 2, 0, 0)); 
         const dayOfWeek = date.getUTCDay();
-        const isRaidDay = dayOfWeek === 3 || dayOfWeek === 6; 
+        const raidDay = isRaidDay(date);
         const isTrackingEnabled = date >= TRACKING_START_DATE;
-
 
         let dayText = day.toString().padStart(2);
         let cellStyle = { hAlign: 'center' as const };
 
-        if (isRaidDay && date <= lastDayToCount) {
+        if (raidDay && date <= lastDayToCount) {
             if (isTrackingEnabled) {
                 totalRaidDays++;
                 const wasPresent = monthAttendance.some(record => 
@@ -408,9 +418,9 @@ function generateCalendarEmbed(
                 );
                 if (wasPresent) {
                     attendedRaidDays++;
-                    dayText = `\x1b[32;1m${dayText}\x1b[0m`;
+                    dayText = `\x1b[32;1m${dayText}\x1b[0m`; // Green for present
                 } else {
-                    dayText = `\x1b[31;1m${dayText}\x1b[0m`;
+                    dayText = `\x1b[31;1m${dayText}\x1b[0m`; // Red for absent
                 }
             }
         }
@@ -427,8 +437,6 @@ function generateCalendarEmbed(
     calendarText += table.toString();
     calendarText += '\n```';
 
-    const monthlyAttendanceRate = totalRaidDays ? Math.round((attendedRaidDays / totalRaidDays) * 100) : 0;
-
     let totalOverallRaidDays = 0;
     let totalOverallAttendedDays = overallAttendance.length;
 
@@ -436,13 +444,13 @@ function generateCalendarEmbed(
     const today = new Date();
     
     while (currentDate <= today) {
-        const dayOfWeek = currentDate.getUTCDay();
-        if (dayOfWeek === 3 || dayOfWeek === 6) { 
+        if (isRaidDay(currentDate)) {
             totalOverallRaidDays++;
         }
         currentDate.setDate(currentDate.getDate() + 1);
     }
 
+    const monthlyAttendanceRate = totalRaidDays ? Math.round((attendedRaidDays / totalRaidDays) * 100) : 0;
     const overallAttendanceRate = totalOverallRaidDays ? Math.round((totalOverallAttendedDays / totalOverallRaidDays) * 100) : 0;
 
     if (attendedRaidDays === 0 && totalRaidDays === 0) {

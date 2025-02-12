@@ -5,12 +5,6 @@ import { messageCommand } from '../commands/message';
 import { attendanceCommand } from '../commands/attendance';
 
 const commands = [messageCommand, attendanceCommand];
-const commandIdsToDelete = [
-    '1338949454220230699',
-    '1338774856145305641',
-    '1338949454220230698',
-    '1338757969935859754'
-];
 
 interface BotClient extends Client {
     commands: Collection<string, Command>;
@@ -29,60 +23,19 @@ export async function commandBot(client: Client): Promise<void> {
 
         try {
             const rest = new REST().setToken(config.DISCORD_TOKEN);
-            
-            for (const guild of client.guilds.cache.values()) {
-                try {
-                    console.log(`Deleting specific commands from guild: ${guild.name}`);
-                    for (const commandId of commandIdsToDelete) {
-                        try {
-                            await rest.delete(
-                                Routes.applicationGuildCommand(client.user?.id || '', guild.id, commandId)
-                            );
-                            console.log(`Deleted specific command ${commandId} from ${guild.name}`);
-                        } catch (error) {
-                            console.error(`Failed to delete command ${commandId} from ${guild.name}:`, error);
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Failed to process guild ${guild.name}:`, error);
-                }
-            }
-
-            for (const guild of client.guilds.cache.values()) {
-                try {
-                    console.log(`Fetching existing commands from guild: ${guild.name}`);
-                    const existingCommands = await rest.get(
-                        Routes.applicationGuildCommands(client.user?.id || '', guild.id)
-                    ) as { id: string }[];
-
-                    console.log(`Found ${existingCommands.length} existing commands in ${guild.name}`);
-
-                    for (const command of existingCommands) {
-                        await rest.delete(
-                            Routes.applicationGuildCommand(client.user?.id || '', guild.id, command.id)
-                        );
-                        console.log(`Deleted command ${command.id} from ${guild.name}`);
-                    }
-
-                    console.log(`Successfully removed all commands from ${guild.name}`);
-                } catch (error) {
-                    console.error(`Failed to remove commands from guild ${guild.name}:`, error);
-                }
-            }
-
-            console.log('Started registering new application (/) commands.');
+            console.log('Started refreshing application (/) commands.');
             const commandData = commands.map(command => command.data.toJSON());
             
             for (const guild of client.guilds.cache.values()) {
                 try {
-                    console.log(`Registering new commands for guild: ${guild.name}`);
+                    console.log(`Refreshing commands for guild: ${guild.name}`);
                     await rest.put(
                         Routes.applicationGuildCommands(client.user?.id || '', guild.id),
                         { body: commandData }
                     );
-                    console.log(`Successfully registered new commands for ${guild.name}`);
+                    console.log(`Successfully refreshed commands for ${guild.name}`);
                 } catch (error) {
-                    console.error(`Failed to register commands for guild ${guild.name}:`, error);
+                    console.error(`Failed to refresh commands for guild ${guild.name}:`, error);
                 }
             }
 
@@ -93,8 +46,6 @@ export async function commandBot(client: Client): Promise<void> {
     });
 
     client.on(Events.InteractionCreate, async interaction => {
-
-
         if (!interaction.isChatInputCommand()) return;
 
         console.log(`Received command: ${interaction.commandName} in guild: ${interaction.guild?.name}`);

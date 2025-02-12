@@ -23,8 +23,8 @@ type DiscordUser = {
 
 export class NotificationService {
     private client: Client;
-    private mainChannelId: string;
-    private newSubmissionsChannelId: string;
+    private readonly mainChannelId: string;
+    private readonly newSubmissionsChannelId: string;
 
     constructor(client: Client, mainChannelId: string, newSubmissionsChannelId: string) {
         this.client = client;

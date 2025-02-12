@@ -1,19 +1,22 @@
 import { Client } from "discord.js";
 import mysql from "mysql2";
-import { PerscomService, AcceptedUsers, DeniedUsers, Form1Submission } from "../services/request_perscom";
-import { DatabaseService, FormIdsTable } from "../services/database";
+import { PerscomService } from "../services/request_perscom";
+import { DatabaseService } from "../services/database";
 import { NotificationService } from "../services/notificationService";
 import { config } from "../config/config";
 
+// Optimized pool configuration with reasonable defaults
 const pool = mysql.createPool({
-    host: config.APPLICATION_DB_HOST,
-    port: config.APPLICATION_DB_PORT,
-    user: config.APPLICATION_DB_USERNAME,
-    password: config.APPLICATION_DB_PASSWORD,
-    database: config.APPLICATION_DB_NAME,
+    host: config.APPLICATION_DB.host,
+    port: config.APPLICATION_DB.port,
+    user: config.APPLICATION_DB.username,
+    password: config.APPLICATION_DB.password,
+    database: config.APPLICATION_DB.database,
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: 5, // Reduced from 10 since the app doesn't need that many
     queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
 });
 
 const poolPromise = pool.promise();
@@ -21,76 +24,56 @@ const poolPromise = pool.promise();
 export async function applicationBot(client: Client): Promise<void> {
     client.once("ready", () => {
         console.log(`Application Bot has logged in as ${client.user?.tag}`);
-        console.log('[ApplicationBot] Starting check scheduler (every 5 minutes)');
-        setInterval(sendMessageTask, 300000); 
+        setInterval(sendMessageTask, 300000);
         sendMessageTask();
     });
 
     const notificationService = new NotificationService(client, config.APPLICATION_DISCORD_CHANNEL_ID, config.NEW_APPLICATION_CHANNEL_ID);
 
     async function sendMessageTask(): Promise<void> {
-        const startTime = new Date();
-        console.log(`[${startTime.toISOString()}] ApplicationBot: Starting check cycle...`);
-        
         let connection;
         try {
             connection = await poolPromise.getConnection();
-            const checkStartTime = Date.now();
-
-            const perscomService: PerscomService = new PerscomService(config.BEARER_TOKEN_PERSCOM);
-            const databaseService: DatabaseService = new DatabaseService(connection);
+            const perscomService = new PerscomService(config.BEARER_TOKEN_PERSCOM);
+            const databaseService = new DatabaseService(connection);
 
             await perscomService.clearCache();
-
-            const data: Form1Submission[] = await perscomService.getAllForm1Data();
-            console.log(`[${new Date().toISOString()}] ApplicationBot: Retrieved ${data.length} form submissions`);
-
-            const oldSubmissions: FormIdsTable[] = await databaseService.getFormsIdsTable();
-            const newSubmissions: Form1Submission[] = data.filter(
-                (newForm: Form1Submission): boolean =>
-                    !oldSubmissions.some(
-                        (oldForm: FormIdsTable): boolean => oldForm.form_id === newForm.form_id
-                    )
+            const data = await perscomService.getAllForm1Data();
+            
+            const oldSubmissions = await databaseService.getFormsIdsTable();
+            const newSubmissions = data.filter(
+                newForm => !oldSubmissions.some(oldForm => oldForm.form_id === newForm.form_id)
             );
 
             if (newSubmissions.length > 0) {
-                console.log(`[${new Date().toISOString()}] ApplicationBot: Processing ${newSubmissions.length} new submissions`);
                 await databaseService.putFormIdsTable(newSubmissions);
                 await notificationService.notifyNewApplications(newSubmissions);
             }
 
-            const acceptedUsersDatabase: AcceptedUsers[] = await databaseService.getUsersDatabase();
-            const acceptedUsers: AcceptedUsers[] = await perscomService.getSubmissionStatus(data, 7);
-            const newAcceptedUsers: AcceptedUsers[] = await databaseService.compareAndInsertUsers(
-                acceptedUsers,
-                acceptedUsersDatabase
-            );
+            const [acceptedUsersDatabase, acceptedUsers] = await Promise.all([
+                databaseService.getUsersDatabase(),
+                perscomService.getSubmissionStatus(data, 7)
+            ]);
 
-            const deniedUsers: DeniedUsers[] = await perscomService.getSubmissionStatus(data, 8);
+            const newAcceptedUsers = await databaseService.compareAndInsertUsers(acceptedUsers, acceptedUsersDatabase);
+            const deniedUsers = await perscomService.getSubmissionStatus(data, 8);
+
             if (deniedUsers.length > 0) {
-                console.log(`[${new Date().toISOString()}] ApplicationBot: Processing ${deniedUsers.length} denied applications`);
                 await notificationService.notifyDeniedUsers(deniedUsers, data);
                 await perscomService.deleteUsers(deniedUsers);
                 await databaseService.deleteOldForms(deniedUsers);
             }
 
             if (newAcceptedUsers.length > 0) {
-                console.log(`[${new Date().toISOString()}] ApplicationBot: Processing ${newAcceptedUsers.length} newly accepted applications`);
                 await notificationService.notifyAcceptedUsers(newAcceptedUsers, data);
             }
 
-            const checkDuration = Date.now() - checkStartTime;
-            console.log(`[${new Date().toISOString()}] ApplicationBot: Check cycle completed (Duration: ${checkDuration}ms)`);
-
         } catch (error) {
-            console.error(`[${new Date().toISOString()}] ApplicationBot Error:`, error);
+            console.error('ApplicationBot Error:', error);
         } finally {
             if (connection) {
                 connection.release();
             }
-            const endTime = new Date();
-            const duration = endTime.getTime() - startTime.getTime();
-            console.log(`[${endTime.toISOString()}] ApplicationBot: Check cycle ended (Total duration: ${duration}ms)`);
         }
     }
 }

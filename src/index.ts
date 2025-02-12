@@ -18,33 +18,23 @@ async function main() {
         await applicationBot(client);
         await commandBot(client);
 
-        client.once('ready', async () => {
-            console.log(`Bot is ready! Logged in as ${client.user?.tag}`);
-            console.log(`Bot is in ${client.guilds.cache.size} servers:`);
-            client.guilds.cache.forEach(guild => {
-                console.log(`- ${guild.name} (ID: ${guild.id})`);
-            });
-        });
-
-        client.on('guildCreate', (guild) => {
-            console.log(`Bot joined a new server: ${guild.name} (ID: ${guild.id})`);
-        });
-
         await client.login(config.DISCORD_TOKEN);
 
-        process.on('SIGINT', () => {
+        const shutdown = () => {
+            console.log('Shutting down gracefully...');
             client.destroy();
             process.exit(0);
-        });
-        process.on('SIGTERM', () => {
-            client.destroy();
-            process.exit(0);
-        });
+        };
+
+        process.on('SIGINT', shutdown);
+        process.on('SIGTERM', shutdown);
 
     } catch (error) {
-        console.error('An error occurred in the bot:', error);
+        console.error('Fatal error occurred:', error);
         process.exit(1);
     }
 }
 
-main();
+main().then(() => {
+    console.log('Bot started successfully')
+}).catch(e => console.error('Error starting bot:', e));
