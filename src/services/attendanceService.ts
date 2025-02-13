@@ -118,6 +118,7 @@ export interface AttendanceRecord {
     minutes: number;
     raid_type: string;
     status?: string;
+    player: string;  
 }
 
 const dbManager = DatabaseConnectionManager.getInstance();
@@ -126,16 +127,19 @@ export async function getPlayerAttendance(playerNickname: string): Promise<Atten
     try {
         const pool = await dbManager.getConnection();
         
+        const normalizedNickname = playerNickname.replace(/\s+/g, '');
+        
         const result = await pool.query(
-            'SELECT date, player, minutes, raid_type, status FROM RaidActivity WHERE player = $1',
-            [playerNickname]
+            'SELECT date, player, minutes, raid_type, status FROM RaidActivity WHERE REPLACE(player, \' \', \'\') = $1',
+            [normalizedNickname]
         );
 
         return result.rows.map(row => ({
             date: new Date(row.date),
             minutes: Number(row.minutes),
             raid_type: row.raid_type,
-            status: row.status
+            status: row.status,
+            player: row.player
         }));
     } catch (error) {
         console.error('Error fetching player attendance:', error instanceof Error ? error.message : 'Unknown error');

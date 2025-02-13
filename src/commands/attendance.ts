@@ -339,12 +339,19 @@ function generateCalendarEmbed(
         .setColor(Colors.Blue)
         .setDescription('Monthly Calendar View\n🟩 = Present | 🟥 = Absent | ⬜ = Not a Raid Day');
 
+    const normalizedMemberName = memberName.replace(/\s+/g, '');
+    
     const monthAttendance = attendanceData.filter(record => {
-        return record.date.getUTCFullYear() === year && record.date.getUTCMonth() === month;
+        const normalizedRecordName = record.player.replace(/\s+/g, '');
+        return record.date.getUTCFullYear() === year && 
+               record.date.getUTCMonth() === month && 
+               normalizedRecordName === normalizedMemberName;
     });
 
     const overallAttendance = attendanceData.filter(record => {
-        return record.date >= TRACKING_START_DATE;
+        const normalizedRecordName = record.player.replace(/\s+/g, '');
+        return record.date >= TRACKING_START_DATE && 
+               normalizedRecordName === normalizedMemberName;
     });
 
     const table = new Table({
@@ -374,13 +381,18 @@ function generateCalendarEmbed(
         content: day,
         hAlign: 'center'
     })));
-    new Date(Date.UTC(year, month, 1));
+
+    const firstDay = new Date(Date.UTC(year, month, 1));
     const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
     let currentWeek = new Array(7).fill({ content: '  ', hAlign: 'center' });
     let totalRaidDays = 0;
     let attendedRaidDays = 0;
 
     const isRaidDay = (date: Date): boolean => {
+        if (date < TRACKING_START_DATE) {
+            return false;
+        }
+
         const dayOfWeek = date.getUTCDay();
         const hours = date.getUTCHours();
         
@@ -388,7 +400,6 @@ function generateCalendarEmbed(
             return true;
         }
         return (dayOfWeek === 3 || dayOfWeek === 6) && hours >= 2;
-
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
@@ -405,23 +416,20 @@ function generateCalendarEmbed(
         const date = new Date(Date.UTC(year, month, day, 2, 0, 0)); 
         const dayOfWeek = date.getUTCDay();
         const raidDay = isRaidDay(date);
-        const isTrackingEnabled = date >= TRACKING_START_DATE;
 
         let dayText = day.toString().padStart(2);
         let cellStyle = { hAlign: 'center' as const };
 
         if (raidDay && date <= lastDayToCount) {
-            if (isTrackingEnabled) {
-                totalRaidDays++;
-                const wasPresent = monthAttendance.some(record => 
-                    compareDates(record.date, date)
-                );
-                if (wasPresent) {
-                    attendedRaidDays++;
-                    dayText = `\x1b[32;1m${dayText}\x1b[0m`; // Green for present
-                } else {
-                    dayText = `\x1b[31;1m${dayText}\x1b[0m`; // Red for absent
-                }
+            totalRaidDays++;
+            const wasPresent = monthAttendance.some(record => 
+                compareDates(record.date, date)
+            );
+            if (wasPresent) {
+                attendedRaidDays++;
+                dayText = `\x1b[32;1m${dayText}\x1b[0m`; // Green for present
+            } else {
+                dayText = `\x1b[31;1m${dayText}\x1b[0m`; // Red for absent
             }
         }
 
