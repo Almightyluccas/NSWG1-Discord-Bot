@@ -234,6 +234,7 @@ export const attendanceCommand: Command = {
                     currentMonth
                 );
 
+                await interaction.deleteReply();
                 await interaction.followUp({
                     embeds: [calendar]
                 });
