@@ -29,30 +29,51 @@ class DatabaseConnectionManager {
         return this.pool;
     }
 
+    private sanitizeError(error: string): string {
+        const sensitiveInfo = [
+            config.ATTENDANCE_DB.password,
+            config.ATTENDANCE_DB.username,
+            config.ATTENDANCE_DB.database,
+            config.ATTENDANCE_DB.host
+        ];
+        
+        return sensitiveInfo.reduce((message, info) => 
+            message.replace(new RegExp(info, 'g'), '***'), error);
+    }
+
     private async createConnection(): Promise<Pool> {
-        const pool = new Pool({
-            host: config.ATTENDANCE_DB.host,
-            port: config.ATTENDANCE_DB.port,
-            user: config.ATTENDANCE_DB.username,
-            password: config.ATTENDANCE_DB.password,
-            database: config.ATTENDANCE_DB.database,
-            max: 5,
-            idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 2000,
-            ssl: {
-                rejectUnauthorized: false // Required for Heroku/similar platforms
-            }
-        });
+        try {
+            const pool = new Pool({
+                host: config.ATTENDANCE_DB.host,
+                port: config.ATTENDANCE_DB.port,
+                user: config.ATTENDANCE_DB.username,
+                password: config.ATTENDANCE_DB.password,
+                database: config.ATTENDANCE_DB.database,
+                max: 5,
+                idleTimeoutMillis: 30000,
+                connectionTimeoutMillis: 2000,
+                ssl: {
+                    rejectUnauthorized: false 
+                }
+            });
 
-        pool.on('error', (err: Error) => {
-            console.error('Database connection error:', err);
-            this.pool = null;
-        });
+            pool.on('error', (err: Error) => {
+                const safeMessage = this.sanitizeError(err.message);
+                console.error('Database connection error:', safeMessage);
+                this.pool = null;
+            });
 
-        // Test the connection
-        await pool.query('SELECT 1');
-        this.lastUsedTime = Date.now();
-        return pool;
+            await pool.query('SELECT 1');
+            console.log('Database connection established successfully');
+            this.lastUsedTime = Date.now();
+            return pool;
+        } catch (error) {
+            const sanitizedError = error instanceof Error ? 
+                this.sanitizeError(error.message) : 
+                'Unknown connection error';
+            console.error('Failed to create database connection:', sanitizedError);
+            throw error;
+        }
     }
 
     private async validateConnection(): Promise<void> {
@@ -60,7 +81,7 @@ class DatabaseConnectionManager {
             await this.pool?.query('SELECT 1');
             this.lastUsedTime = Date.now();
         } catch (error) {
-            console.log('Connection validation failed, will create new connection');
+            console.log('Database connection needs to be re-established');
             await this.cleanup();
             this.pool = null;
         }
@@ -91,8 +112,7 @@ class DatabaseConnectionManager {
     }
 }
 
-export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 1));
-
+export const TRACKING_START_DATE = new Date(Date.UTC(2025, 1, 8)); 
 export interface AttendanceRecord {
     date: Date;
     minutes: number;
@@ -118,7 +138,7 @@ export async function getPlayerAttendance(playerNickname: string): Promise<Atten
             status: row.status
         }));
     } catch (error) {
-        console.error('Error fetching player attendance:', error);
+        console.error('Error fetching player attendance:', error instanceof Error ? error.message : 'Unknown error');
         throw error;
     }
 }
