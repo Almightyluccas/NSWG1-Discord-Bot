@@ -235,13 +235,8 @@ export const attendanceCommand: Command = {
                 );
 
                 await interaction.editReply({
-                    content: '',
-                    components: []
-                });
-
-                await interaction.followUp({
                     embeds: [calendar],
-                    ephemeral: true
+                    components: []
                 });
 
             } catch (error) {
