@@ -48,8 +48,6 @@ export const attendanceCommand: Command = {
 
     async execute(interaction: ChatInputCommandInteraction) {
         try {
-            await interaction.deferReply();
-
             const monthChoice = interaction.options.getString('month');
             const customDate = interaction.options.getString('custom_date');
             const today = new Date();
@@ -59,8 +57,9 @@ export const attendanceCommand: Command = {
 
             if (monthChoice === 'custom') {
                 if (!customDate) {
-                    await interaction.editReply({
-                        content: 'When choosing custom date, you must provide a date in MM/YYYY format in the custom_date option.'
+                    await interaction.reply({
+                        content: 'When choosing custom date, you must provide a date in MM/YYYY format in the custom_date option.',
+                        ephemeral: true
                     });
                     return;
                 }
@@ -234,14 +233,15 @@ export const attendanceCommand: Command = {
                     currentMonth
                 );
 
-                await interaction.followUp({
+                // Send the calendar as a new message
+                await interaction.channel?.send({
                     embeds: [calendar]
                 });
 
-                await interaction.editReply({
-                    content: 'Attendance calendar has been displayed.',
-                    components: []
-                });
+                // Delete the original interaction response immediately
+                if (interaction.replied) {
+                    await interaction.deleteReply();
+                }
 
             } catch (error) {
                 console.error('Error fetching attendance data:', error);
