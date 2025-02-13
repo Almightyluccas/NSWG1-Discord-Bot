@@ -36,22 +36,24 @@ class ServerStatusService extends EventEmitter {
         return ServerStatusService.instance;
     }
 
-    private areArraysEqual(arr1: string[], arr2: string[]): boolean {
-        if (arr1.length !== arr2.length) return false;
-        return arr1.every((name, index) => name === arr2[index]);
-    }
-
     public updateServerData(data: ServerData): void {
-        const hasPlayersChanged = this.currentData.onlinePlayers !== data.onlinePlayers;
-        const hasNamesChanged = !this.areArraysEqual(this.currentData.playerNames, data.playerNames);
+        const sanitizedData = {
+            onlinePlayers: Math.max(0, data.onlinePlayers || 0),
+            playerNames: Array.isArray(data.playerNames) ? [...data.playerNames] : []
+        };
 
-        if (hasPlayersChanged || hasNamesChanged) {
-            this.currentData = {
-                onlinePlayers: data.onlinePlayers,
-                playerNames: [...data.playerNames]
-            };
-            this.emit('serverDataUpdated', this.currentData);
+        if (sanitizedData.playerNames.length > 0) {
+            sanitizedData.onlinePlayers = Math.max(sanitizedData.playerNames.length, sanitizedData.onlinePlayers);
         }
+
+        console.log('Updating server status:', {
+            current: this.currentData,
+            new: sanitizedData,
+            timestamp: new Date().toISOString()
+        });
+
+        this.currentData = sanitizedData;
+        this.emit('serverDataUpdated', this.getCurrentData());
     }
 
     public getCurrentData(): ServerData {
@@ -77,8 +79,16 @@ const postServerStatus = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
+        console.log('Received server status update:', {
+            data,
+            timestamp: new Date().toISOString()
+        });
+
         serverStatus.updateServerData(data);
-        res.status(200).json({ message: 'Server status updated successfully' });
+        res.status(200).json({ 
+            message: 'Server status updated successfully',
+            currentStatus: serverStatus.getCurrentData()
+        });
     } catch (error) {
         console.error('Error updating server status:', error);
         res.status(500).json({ error: 'Internal server error' });

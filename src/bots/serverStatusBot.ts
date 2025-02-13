@@ -5,16 +5,9 @@ import { ServerStatusService, ServerData } from '../services/serverStatusService
 export async function serverStatusBot(client: Client): Promise<void> {
     const serverStatus = ServerStatusService.getInstance();
     let statusChannel: TextChannel | null = null;
-    let lastData: ServerData | null = null;
-
-    const hasDataChanged = (oldData: ServerData | null, newData: ServerData): boolean => {
-        if (!oldData) return true;
-        
-        if (oldData.onlinePlayers !== newData.onlinePlayers) return true;
-        
-        if (oldData.playerNames.length !== newData.playerNames.length) return true;
-        
-        return !oldData.playerNames.every((name, index) => name === newData.playerNames[index]);
+    let lastData: ServerData = {
+        onlinePlayers: 0,
+        playerNames: []
     };
 
     const createStatusEmbed = (data: ServerData): EmbedBuilder => {
@@ -23,7 +16,7 @@ export async function serverStatusBot(client: Client): Promise<void> {
             .setColor(data.onlinePlayers > 0 ? Colors.Green : Colors.Red)
             .setTimestamp();
 
-        if (data.onlinePlayers === 0) {
+        if (data.onlinePlayers === 0 && data.playerNames.length === 0) {
             embed.setDescription('Server is currently empty');
         } else {
             embed.setDescription('Server is active!')
@@ -48,7 +41,12 @@ export async function serverStatusBot(client: Client): Promise<void> {
         if (!statusChannel || !client.user) return;
 
         try {
-            if (!hasDataChanged(lastData, data)) {
+            const hasChanged = 
+                lastData.onlinePlayers !== data.onlinePlayers ||
+                lastData.playerNames.length !== data.playerNames.length ||
+                JSON.stringify(lastData.playerNames) !== JSON.stringify(data.playerNames);
+
+            if (!hasChanged) {
                 return;
             }
 
@@ -56,6 +54,12 @@ export async function serverStatusBot(client: Client): Promise<void> {
                 onlinePlayers: data.onlinePlayers,
                 playerNames: [...data.playerNames]
             };
+
+            console.log('Updating status with data:', {
+                onlinePlayers: data.onlinePlayers,
+                playerNames: data.playerNames,
+                timestamp: new Date().toISOString()
+            });
 
             const messages = await statusChannel.messages.fetch({ limit: 10 });
             const lastBotMessage = messages.find(msg => msg.author.id === client.user?.id);
@@ -86,6 +90,7 @@ export async function serverStatusBot(client: Client): Promise<void> {
             console.log('Server status channel initialized');
 
             const initialData = serverStatus.getCurrentData();
+            console.log('Initial server data:', initialData);
             await updateStatusMessage(initialData);
         } catch (error) {
             console.error('Error initializing server status channel:', error);
@@ -93,6 +98,11 @@ export async function serverStatusBot(client: Client): Promise<void> {
     });
 
     serverStatus.on('serverDataUpdated', async (data: ServerData) => {
+        console.log('Received server data update:', {
+            onlinePlayers: data.onlinePlayers,
+            playerNames: data.playerNames,
+            timestamp: new Date().toISOString()
+        });
         await updateStatusMessage(data);
     });
 }
