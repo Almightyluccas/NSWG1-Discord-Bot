@@ -1,12 +1,12 @@
-import mysql from 'mysql2/promise';
+import { Pool } from 'pg';
 import { config } from '../config/config';
 
 class DatabaseConnectionManager {
     private static instance: DatabaseConnectionManager;
-    private connection: mysql.Connection | null = null;
-    private connectionPromise: Promise<mysql.Connection> | null = null;
-    private connectionTimeout: NodeJS.Timeout | null = null;
+    private pool: Pool | null = null;
     private readonly IDLE_TIMEOUT = 5 * 60 * 1000;
+    private lastUsedTime: number = 0;
+    private cleanupTimeout: NodeJS.Timeout | null = null;
 
     private constructor() {}
 
@@ -17,66 +17,76 @@ class DatabaseConnectionManager {
         return DatabaseConnectionManager.instance;
     }
 
-    public async getConnection(): Promise<mysql.Connection> {
-        if (this.connection) {
+    public async getConnection(): Promise<Pool> {
+        if (this.pool) {
+            await this.validateConnection();
             this.refreshTimeout();
-            return this.connection;
+            return this.pool;
         }
 
-        if (this.connectionPromise) {
-            return await this.connectionPromise;
-        }
-
-        this.connectionPromise = this.createConnection();
-        try {
-            this.connection = await this.connectionPromise;
-            this.refreshTimeout();
-            return this.connection;
-        } finally {
-            this.connectionPromise = null;
-        }
+        this.pool = await this.createConnection();
+        this.refreshTimeout();
+        return this.pool;
     }
 
-    private async createConnection(): Promise<mysql.Connection> {
-        const connection = await mysql.createConnection({
+    private async createConnection(): Promise<Pool> {
+        const pool = new Pool({
             host: config.ATTENDANCE_DB.host,
+            port: config.ATTENDANCE_DB.port,
             user: config.ATTENDANCE_DB.username,
             password: config.ATTENDANCE_DB.password,
             database: config.ATTENDANCE_DB.database,
-            multipleStatements: true
-        });
-
-        connection.on('error', async (err) => {
-            console.error('Database connection error:', err);
-            if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-                console.log('Reconnecting to database...');
-                this.connection = null;
-                await this.cleanup();
+            max: 5,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
+            ssl: {
+                rejectUnauthorized: false // Required for Heroku/similar platforms
             }
         });
 
-        return connection;
+        pool.on('error', (err: Error) => {
+            console.error('Database connection error:', err);
+            this.pool = null;
+        });
+
+        // Test the connection
+        await pool.query('SELECT 1');
+        this.lastUsedTime = Date.now();
+        return pool;
+    }
+
+    private async validateConnection(): Promise<void> {
+        try {
+            await this.pool?.query('SELECT 1');
+            this.lastUsedTime = Date.now();
+        } catch (error) {
+            console.log('Connection validation failed, will create new connection');
+            await this.cleanup();
+            this.pool = null;
+        }
     }
 
     private refreshTimeout(): void {
-        if (this.connectionTimeout) {
-            clearTimeout(this.connectionTimeout);
+        if (this.cleanupTimeout) {
+            clearTimeout(this.cleanupTimeout);
         }
 
-        this.connectionTimeout = setTimeout(async () => {
-            await this.cleanup();
+        this.cleanupTimeout = setTimeout(async () => {
+            if (Date.now() - this.lastUsedTime >= this.IDLE_TIMEOUT) {
+                await this.cleanup();
+            }
         }, this.IDLE_TIMEOUT);
     }
 
     public async cleanup(): Promise<void> {
-        if (this.connectionTimeout) {
-            clearTimeout(this.connectionTimeout);
-            this.connectionTimeout = null;
+        if (this.cleanupTimeout) {
+            clearTimeout(this.cleanupTimeout);
+            this.cleanupTimeout = null;
         }
 
-        if (this.connection) {
-            await this.connection.end();
-            this.connection = null;
+        if (this.pool) {
+            await this.pool.end();
+            this.pool = null;
         }
     }
 }
@@ -94,22 +104,19 @@ const dbManager = DatabaseConnectionManager.getInstance();
 
 export async function getPlayerAttendance(playerNickname: string): Promise<AttendanceRecord[]> {
     try {
-        const conn = await dbManager.getConnection();
+        const pool = await dbManager.getConnection();
         
-        const [rows] = await conn.query<mysql.RowDataPacket[]>(
-            'SELECT date, player, minutes, raid_type, status FROM RaidActivity WHERE player = ?',
+        const result = await pool.query(
+            'SELECT date, player, minutes, raid_type, status FROM RaidActivity WHERE player = $1',
             [playerNickname]
         );
 
-        return rows.map(row => {
-            const timestamp = typeof row.date === 'string' ? parseInt(row.date) : Number(row.date);
-            return {
-                date: new Date(timestamp),
-                minutes: Number(row.minutes),
-                raid_type: row.raid_type,
-                status: row.status
-            };
-        });
+        return result.rows.map(row => ({
+            date: new Date(row.date),
+            minutes: Number(row.minutes),
+            raid_type: row.raid_type,
+            status: row.status
+        }));
     } catch (error) {
         console.error('Error fetching player attendance:', error);
         throw error;
