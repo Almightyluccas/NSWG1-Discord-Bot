@@ -5,6 +5,17 @@ import { ServerStatusService, ServerData } from '../services/serverStatusService
 export async function serverStatusBot(client: Client): Promise<void> {
     const serverStatus = ServerStatusService.getInstance();
     let statusChannel: TextChannel | null = null;
+    let lastData: ServerData | null = null;
+
+    const hasDataChanged = (oldData: ServerData | null, newData: ServerData): boolean => {
+        if (!oldData) return true;
+        
+        if (oldData.onlinePlayers !== newData.onlinePlayers) return true;
+        
+        if (oldData.playerNames.length !== newData.playerNames.length) return true;
+        
+        return !oldData.playerNames.every((name, index) => name === newData.playerNames[index]);
+    };
 
     const createStatusEmbed = (data: ServerData): EmbedBuilder => {
         const embed = new EmbedBuilder()
@@ -19,7 +30,7 @@ export async function serverStatusBot(client: Client): Promise<void> {
                 .addFields(
                     { 
                         name: 'Players Online', 
-                        value: `${data.onlinePlayers} player${data.onlinePlayers > 1 ? 's' : ''}`, 
+                        value: `${data.onlinePlayers}/40`, 
                         inline: true 
                     },
                     { 
@@ -37,6 +48,15 @@ export async function serverStatusBot(client: Client): Promise<void> {
         if (!statusChannel || !client.user) return;
 
         try {
+            if (!hasDataChanged(lastData, data)) {
+                return;
+            }
+
+            lastData = {
+                onlinePlayers: data.onlinePlayers,
+                playerNames: [...data.playerNames]
+            };
+
             const messages = await statusChannel.messages.fetch({ limit: 10 });
             const lastBotMessage = messages.find(msg => msg.author.id === client.user?.id);
             
