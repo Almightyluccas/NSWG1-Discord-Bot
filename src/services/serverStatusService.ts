@@ -36,17 +36,20 @@ class ServerStatusService extends EventEmitter {
         return ServerStatusService.instance;
     }
 
+    private areArraysEqual(arr1: string[], arr2: string[]): boolean {
+        if (arr1.length !== arr2.length) return false;
+        return arr1.every((name, index) => name === arr2[index]);
+    }
+
     public updateServerData(data: ServerData): void {
-        const hasChanged = 
-            this.currentData.onlinePlayers !== data.onlinePlayers || 
-            JSON.stringify(this.currentData.playerNames) !== JSON.stringify(data.playerNames);
+        const hasPlayersChanged = this.currentData.onlinePlayers !== data.onlinePlayers;
+        const hasNamesChanged = !this.areArraysEqual(this.currentData.playerNames, data.playerNames);
 
-        this.currentData = {
-            onlinePlayers: data.onlinePlayers,
-            playerNames: [...data.playerNames]
-        };
-
-        if (hasChanged) {
+        if (hasPlayersChanged || hasNamesChanged) {
+            this.currentData = {
+                onlinePlayers: data.onlinePlayers,
+                playerNames: [...data.playerNames]
+            };
             this.emit('serverDataUpdated', this.currentData);
         }
     }
