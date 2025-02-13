@@ -399,21 +399,18 @@ function generateCalendarEmbed(
         hAlign: 'center'
     })));
 
-    const firstDay = new Date(Date.UTC(year, month, 1));
     const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
     let currentWeek = new Array(7).fill({ content: '  ', hAlign: 'center' });
     let totalRaidDays = 0;
     let attendedRaidDays = 0;
 
     const isRaidDay = (date: Date): boolean => {
-        // First check if date matches tracking start date exactly
         if (date.getUTCFullYear() === TRACKING_START_DATE.getUTCFullYear() &&
             date.getUTCMonth() === TRACKING_START_DATE.getUTCMonth() &&
             date.getUTCDate() === TRACKING_START_DATE.getUTCDate()) {
             return true;
         }
         
-        // Then do the normal checks
         if (date < TRACKING_START_DATE) {
             return false;
         }

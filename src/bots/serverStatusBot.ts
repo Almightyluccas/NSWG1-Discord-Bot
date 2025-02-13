@@ -30,7 +30,7 @@ export async function serverStatusBot(client: Client): Promise<void> {
                 .addFields(
                     { 
                         name: 'Players Online', 
-                        value: `${data.onlinePlayers}/40`, 
+                        value: `${data.onlinePlayers}/33`,
                         inline: true 
                     },
                     { 
