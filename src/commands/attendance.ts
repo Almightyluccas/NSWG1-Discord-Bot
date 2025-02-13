@@ -169,7 +169,7 @@ export const attendanceCommand: Command = {
                     .addComponents(select);
 
                 await interaction.editReply({
-                    content: '',
+                    content: 'Select a member:',
                     components: [row]
                 });
 
@@ -235,6 +235,7 @@ export const attendanceCommand: Command = {
                 );
 
                 await interaction.editReply({
+                    content: `Calendar has been generate for ${memberInfo.displayName}`,
                     embeds: [calendar],
                     components: []
                 });
