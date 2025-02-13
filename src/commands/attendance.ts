@@ -334,19 +334,39 @@ function generateCalendarEmbed(
     year: number, 
     month: number
 ): EmbedBuilder {
+    console.log('Generating calendar for:', {
+        memberName,
+        year,
+        month,
+        receivedRecords: attendanceData.length
+    });
+
     const calendar = new EmbedBuilder()
         .setTitle(`Attendance Calendar for ${memberName}`)
         .setColor(Colors.Blue)
         .setDescription('Monthly Calendar View\n🟩 = Present | 🟥 = Absent | ⬜ = Not a Raid Day');
 
     const normalizedMemberName = memberName.replace(/\s+/g, '');
+    console.log('Normalized member name:', normalizedMemberName);
     
     const monthAttendance = attendanceData.filter(record => {
         const normalizedRecordName = record.player.replace(/\s+/g, '');
-        return record.date.getUTCFullYear() === year && 
-               record.date.getUTCMonth() === month && 
-               normalizedRecordName === normalizedMemberName;
+        const matchesMonth = record.date.getUTCFullYear() === year && record.date.getUTCMonth() === month;
+        const matchesName = normalizedRecordName === normalizedMemberName;
+        
+        console.log('Checking record:', {
+            date: record.date.toUTCString(),
+            recordYear: record.date.getUTCFullYear(),
+            recordMonth: record.date.getUTCMonth(),
+            normalizedRecordName,
+            matchesMonth,
+            matchesName
+        });
+
+        return matchesMonth && matchesName;
     });
+
+    console.log('Filtered attendance records for month:', monthAttendance);
 
     const overallAttendance = attendanceData.filter(record => {
         const normalizedRecordName = record.player.replace(/\s+/g, '');
@@ -389,31 +409,40 @@ function generateCalendarEmbed(
     let attendedRaidDays = 0;
 
     const isRaidDay = (date: Date): boolean => {
+        // First check if date matches tracking start date exactly
+        if (date.getUTCFullYear() === TRACKING_START_DATE.getUTCFullYear() &&
+            date.getUTCMonth() === TRACKING_START_DATE.getUTCMonth() &&
+            date.getUTCDate() === TRACKING_START_DATE.getUTCDate()) {
+            return true;
+        }
+        
+        // Then do the normal checks
         if (date < TRACKING_START_DATE) {
             return false;
         }
 
         const dayOfWeek = date.getUTCDay();
-        const hours = date.getUTCHours();
-        
-        if ((dayOfWeek === 4 || dayOfWeek === 0) && hours < 2) {
-            return true;
-        }
-        return (dayOfWeek === 3 || dayOfWeek === 6) && hours >= 2;
+        return dayOfWeek === 3 || dayOfWeek === 6; // Wednesday or Saturday
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
-        const startOfDay = new Date(Date.UTC(year, month, date2.getUTCDate(), 0, 0, 0));
-        const endOfDay = new Date(Date.UTC(year, month, date2.getUTCDate(), 23, 59, 59, 999));
+        const date1Time = Date.UTC(date1.getUTCFullYear(), date1.getUTCMonth(), date1.getUTCDate());
+        const date2Time = Date.UTC(date2.getUTCFullYear(), date2.getUTCMonth(), date2.getUTCDate());
         
-        return date1.getTime() >= startOfDay.getTime() && date1.getTime() <= endOfDay.getTime();
+        console.log('Comparing dates:', {
+            date1: new Date(date1Time).toUTCString(),
+            date2: new Date(date2Time).toUTCString(),
+            matches: date1Time === date2Time
+        });
+        
+        return date1Time === date2Time;
     };
 
     const isCurrentMonth = year === new Date().getUTCFullYear() && month === new Date().getUTCMonth();
     const lastDayToCount = isCurrentMonth ? new Date() : new Date(Date.UTC(year, month + 1, 0));
 
     for (let day = 1; day <= lastDay; day++) {
-        const date = new Date(Date.UTC(year, month, day, 2, 0, 0)); 
+        const date = new Date(Date.UTC(year, month, day)); 
         const dayOfWeek = date.getUTCDay();
         const raidDay = isRaidDay(date);
 
@@ -422,9 +451,10 @@ function generateCalendarEmbed(
 
         if (raidDay && date <= lastDayToCount) {
             totalRaidDays++;
-            const wasPresent = monthAttendance.some(record => 
-                compareDates(record.date, date)
-            );
+            const wasPresent = monthAttendance.some(record => {
+                return compareDates(record.date, date);
+            });
+            
             if (wasPresent) {
                 attendedRaidDays++;
                 dayText = `\x1b[32;1m${dayText}\x1b[0m`; // Green for present
