@@ -239,10 +239,6 @@ export const attendanceCommand: Command = {
                     embeds: [calendar]
                 });
 
-                // await interaction.editReply({
-                //     content: 'Attendance calendar has been displayed.',
-                //     components: []
-                // });
 
             } catch (error) {
                 console.error('Error fetching attendance data:', error);
