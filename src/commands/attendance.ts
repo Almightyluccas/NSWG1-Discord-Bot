@@ -169,7 +169,7 @@ export const attendanceCommand: Command = {
                     .addComponents(select);
 
                 await interaction.editReply({
-                    content: 'Select a member:',
+                    content: 'Select a member to view their attendance:',
                     components: [row]
                 });
 
@@ -234,9 +234,12 @@ export const attendanceCommand: Command = {
                     currentMonth
                 );
 
+                await interaction.followUp({
+                    embeds: [calendar]
+                });
+
                 await interaction.editReply({
-                    content: `Calendar has been generate for ${memberInfo.displayName}`,
-                    embeds: [calendar],
+                    content: 'Attendance calendar has been displayed.',
                     components: []
                 });
 
@@ -406,18 +409,20 @@ function generateCalendarEmbed(
     let attendedRaidDays = 0;
 
     const isRaidDay = (date: Date): boolean => {
+        // First check if date matches tracking start date exactly
         if (date.getUTCFullYear() === TRACKING_START_DATE.getUTCFullYear() &&
             date.getUTCMonth() === TRACKING_START_DATE.getUTCMonth() &&
             date.getUTCDate() === TRACKING_START_DATE.getUTCDate()) {
             return true;
         }
         
+        // Then do the normal checks
         if (date < TRACKING_START_DATE) {
             return false;
         }
 
         const dayOfWeek = date.getUTCDay();
-        return dayOfWeek === 3 || dayOfWeek === 6; 
+        return dayOfWeek === 3 || dayOfWeek === 6; // Wednesday or Saturday
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
