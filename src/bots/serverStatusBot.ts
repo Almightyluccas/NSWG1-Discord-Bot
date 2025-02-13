@@ -5,7 +5,6 @@ import { ServerStatusService, ServerData } from '../services/serverStatusService
 export async function serverStatusBot(client: Client): Promise<void> {
     const serverStatus = ServerStatusService.getInstance();
     let statusChannel: TextChannel | null = null;
-    let lastMessageId: string | null = null;
 
     const createStatusEmbed = (data: ServerData): EmbedBuilder => {
         const embed = new EmbedBuilder()
@@ -35,22 +34,22 @@ export async function serverStatusBot(client: Client): Promise<void> {
     };
 
     const updateStatusMessage = async (data: ServerData): Promise<void> => {
-        if (!statusChannel) return;
+        if (!statusChannel || !client.user) return;
 
         try {
-            if (lastMessageId) {
+            const messages = await statusChannel.messages.fetch({ limit: 10 });
+            const lastBotMessage = messages.find(msg => msg.author.id === client.user?.id);
+            
+            if (lastBotMessage) {
                 try {
-                    const oldMessage = await statusChannel.messages.fetch(lastMessageId);
-                    await oldMessage.delete();
+                    await lastBotMessage.delete();
                 } catch (error) {
                     console.error('Failed to delete old status message:', error);
                 }
-                lastMessageId = null;
             }
 
             const embed = createStatusEmbed(data);
-            const message = await statusChannel.send({ embeds: [embed] });
-            lastMessageId = message.id;
+            await statusChannel.send({ embeds: [embed] });
         } catch (error) {
             console.error('Error updating status message:', error);
         }
