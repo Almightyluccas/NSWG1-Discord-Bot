@@ -418,13 +418,13 @@ function generateCalendarEmbed(
             return false;
         }
 
+        // Important: In UTC, Sunday (0) is actually Saturday local time
+        // and Thursday (4) is actually Wednesday local time
         const dayOfWeek = date.getUTCDay();
-        return dayOfWeek === 3 || dayOfWeek === 6; // Wednesday or Saturday
+        return dayOfWeek === 4 || dayOfWeek === 0; // Thursday UTC (Wednesday local) or Sunday UTC (Saturday local)
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
-        // Create new Date objects with only the year, month, and day components
-        // This will ensure we're comparing just the dates without time components
         const date1Time = Date.UTC(date1.getUTCFullYear(), date1.getUTCMonth(), date1.getUTCDate());
         const date2Time = Date.UTC(date2.getUTCFullYear(), date2.getUTCMonth(), date2.getUTCDate());
         return date1Time === date2Time;
