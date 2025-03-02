@@ -399,18 +399,21 @@ function generateCalendarEmbed(
         hAlign: 'center'
     })));
 
+    const firstDay = new Date(Date.UTC(year, month, 1));
     const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
     let currentWeek = new Array(7).fill({ content: '  ', hAlign: 'center' });
     let totalRaidDays = 0;
     let attendedRaidDays = 0;
 
     const isRaidDay = (date: Date): boolean => {
+        // First check if date matches tracking start date exactly
         if (date.getUTCFullYear() === TRACKING_START_DATE.getUTCFullYear() &&
             date.getUTCMonth() === TRACKING_START_DATE.getUTCMonth() &&
             date.getUTCDate() === TRACKING_START_DATE.getUTCDate()) {
             return true;
         }
         
+        // Then do the normal checks
         if (date < TRACKING_START_DATE) {
             return false;
         }
@@ -420,15 +423,10 @@ function generateCalendarEmbed(
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
+        // Create new Date objects with only the year, month, and day components
+        // This will ensure we're comparing just the dates without time components
         const date1Time = Date.UTC(date1.getUTCFullYear(), date1.getUTCMonth(), date1.getUTCDate());
         const date2Time = Date.UTC(date2.getUTCFullYear(), date2.getUTCMonth(), date2.getUTCDate());
-        
-        console.log('Comparing dates:', {
-            date1: new Date(date1Time).toUTCString(),
-            date2: new Date(date2Time).toUTCString(),
-            matches: date1Time === date2Time
-        });
-        
         return date1Time === date2Time;
     };
 
@@ -445,8 +443,18 @@ function generateCalendarEmbed(
 
         if (raidDay && date <= lastDayToCount) {
             totalRaidDays++;
+            
             const wasPresent = monthAttendance.some(record => {
-                return compareDates(record.date, date);
+                // First check by timestamp (more precise)
+                const dateYMD = new Date(Date.UTC(year, month, day));
+                const recordYMD = new Date(Date.UTC(
+                    record.date.getUTCFullYear(),
+                    record.date.getUTCMonth(),
+                    record.date.getUTCDate()
+                ));
+                
+                // Compare both by timestamp (most reliable) and by date components
+                return dateYMD.getTime() === recordYMD.getTime() || compareDates(record.date, date);
             });
             
             if (wasPresent) {
