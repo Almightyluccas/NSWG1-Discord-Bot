@@ -418,10 +418,10 @@ function generateCalendarEmbed(
             return false;
         }
 
-        // Important: In UTC, Sunday (0) is actually Saturday local time
-        // and Thursday (4) is actually Wednesday local time
+        // Check for Saturday (6) and Wednesday (3) in the calendar
+        // The days we show to the user are local days, not UTC
         const dayOfWeek = date.getUTCDay();
-        return dayOfWeek === 4 || dayOfWeek === 0; // Thursday UTC (Wednesday local) or Sunday UTC (Saturday local)
+        return dayOfWeek === 3 || dayOfWeek === 6; // Wednesday and Saturday
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
@@ -436,6 +436,9 @@ function generateCalendarEmbed(
     for (let day = 1; day <= lastDay; day++) {
         const date = new Date(Date.UTC(year, month, day)); 
         const dayOfWeek = date.getUTCDay();
+        
+        // For the calendar display, we need to use the actual calendar day
+        // not the UTC offset adjusted day
         const raidDay = isRaidDay(date);
 
         let dayText = day.toString().padStart(2);
@@ -444,17 +447,17 @@ function generateCalendarEmbed(
         if (raidDay && date <= lastDayToCount) {
             totalRaidDays++;
             
+            // Finding attendance records for this specific day
             const wasPresent = monthAttendance.some(record => {
-                // First check by timestamp (more precise)
-                const dateYMD = new Date(Date.UTC(year, month, day));
-                const recordYMD = new Date(Date.UTC(
+                // Compare just the date parts - year, month, day
+                const recordDate = new Date(Date.UTC(
                     record.date.getUTCFullYear(),
-                    record.date.getUTCMonth(),
+                    record.date.getUTCMonth(), 
                     record.date.getUTCDate()
                 ));
                 
-                // Compare both by timestamp (most reliable) and by date components
-                return dateYMD.getTime() === recordYMD.getTime() || compareDates(record.date, date);
+                const calendarDate = new Date(Date.UTC(year, month, day));
+                return recordDate.getTime() === calendarDate.getTime();
             });
             
             if (wasPresent) {
