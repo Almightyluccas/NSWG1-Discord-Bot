@@ -350,16 +350,6 @@ function generateCalendarEmbed(
         const normalizedRecordName = record.player.replace(/\s+/g, '');
         const matchesMonth = record.date.getUTCFullYear() === year && record.date.getUTCMonth() === month;
         const matchesName = normalizedRecordName === normalizedMemberName;
-        
-        console.log('Checking record:', {
-            date: record.date.toUTCString(),
-            recordYear: record.date.getUTCFullYear(),
-            recordMonth: record.date.getUTCMonth(),
-            normalizedRecordName,
-            matchesMonth,
-            matchesName
-        });
-
         return matchesMonth && matchesName;
     });
 
@@ -418,8 +408,9 @@ function generateCalendarEmbed(
             return false;
         }
 
-        // Check for Saturday (6) and Wednesday (3) in the calendar
-        // The days we show to the user are local days, not UTC
+        // Raid days are Wednesday and Saturday in local time (EST)
+        // We're checking the raid_type from the record if available
+        // Otherwise use the day of week
         const dayOfWeek = date.getUTCDay();
         return dayOfWeek === 3 || dayOfWeek === 6; // Wednesday and Saturday
     };
@@ -436,9 +427,6 @@ function generateCalendarEmbed(
     for (let day = 1; day <= lastDay; day++) {
         const date = new Date(Date.UTC(year, month, day)); 
         const dayOfWeek = date.getUTCDay();
-        
-        // For the calendar display, we need to use the actual calendar day
-        // not the UTC offset adjusted day
         const raidDay = isRaidDay(date);
 
         let dayText = day.toString().padStart(2);
@@ -447,9 +435,8 @@ function generateCalendarEmbed(
         if (raidDay && date <= lastDayToCount) {
             totalRaidDays++;
             
-            // Finding attendance records for this specific day
             const wasPresent = monthAttendance.some(record => {
-                // Compare just the date parts - year, month, day
+                // Check if we have a direct match for this date in UTC
                 const recordDate = new Date(Date.UTC(
                     record.date.getUTCFullYear(),
                     record.date.getUTCMonth(), 
@@ -457,6 +444,25 @@ function generateCalendarEmbed(
                 ));
                 
                 const calendarDate = new Date(Date.UTC(year, month, day));
+                
+                // If the record has a raid_type field containing SAT or WED,
+                // use that to determine if this is a match for this day
+                if (record.raid_type) {
+                    const isWednesday = record.raid_type.includes('WED') && dayOfWeek === 3;
+                    const isSaturday = record.raid_type.includes('SAT') && dayOfWeek === 6;
+                    
+                    if (isWednesday || isSaturday) {
+                        // Check if the month and year match
+                        const sameMonth = record.date.getUTCMonth() === month;
+                        const sameYear = record.date.getUTCFullYear() === year;
+                        
+                        if (sameMonth && sameYear) {
+                            return true;
+                        }
+                    }
+                }
+                
+                // Fall back to direct date comparison
                 return recordDate.getTime() === calendarDate.getTime();
             });
             
