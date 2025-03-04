@@ -418,9 +418,8 @@ function generateCalendarEmbed(
         // Get the UTC day of week
         const dayOfWeek = date.getUTCDay();
         
-        // Raid days are Sunday (0) and Wednesday (3) in UTC
-        // These correspond to Saturday and Wednesday in EST
-        return dayOfWeek === 0 || dayOfWeek === 3; // UTC Sunday and Wednesday
+        // Raid days are Saturday (6) and Wednesday (3) in UTC calendar display
+        return dayOfWeek === 6 || dayOfWeek === 3; // Saturday and Wednesday
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
@@ -455,19 +454,21 @@ function generateCalendarEmbed(
                 
                 // Direct match case (most accurate)
                 if (recordDate.getTime() === calendarDate.getTime()) {
+                    console.log(`Found direct match for ${day}/${month}/${year}`);
                     return true;
                 }
 
                 // Special handling for raid types
                 if (record.raid_type) {
-                    // If it's a Sunday in the calendar (0) and this is a SAT record - it's a match
-                    if (dayOfWeek === 0 && record.raid_type.includes('SAT')) {
-                        // The record might be from late Saturday EST which is Sunday in UTC
+                    // If it's a Saturday in the calendar (6) and this is a SAT record
+                    if (dayOfWeek === 6 && record.raid_type.includes('SAT')) {
+                        console.log(`Found SAT raid record for day ${day} (${record.raid_type})`);
                         return true;
                     }
                     
-                    // If it's a Wednesday in the calendar (3) and this is a WED record - it's a match
+                    // If it's a Wednesday in the calendar (3) and this is a WED record
                     if (dayOfWeek === 3 && record.raid_type.includes('WED')) {
+                        console.log(`Found WED raid record for day ${day} (${record.raid_type})`);
                         return true;
                     }
                 }
