@@ -348,8 +348,16 @@ function generateCalendarEmbed(
     
     const monthAttendance = attendanceData.filter(record => {
         const normalizedRecordName = record.player.replace(/\s+/g, '');
-        const matchesMonth = record.date.getUTCFullYear() === year && record.date.getUTCMonth() === month;
+        
+        // Convert the UTC record date to EST for filtering
+        const estOffset = -5; // Standard time offset, would be -4 during daylight saving
+        const recordDateEST = new Date(record.date);
+        recordDateEST.setUTCHours(recordDateEST.getUTCHours() + estOffset);
+        
+        // Use the EST date for month/year matching
+        const matchesMonth = recordDateEST.getUTCFullYear() === year && recordDateEST.getUTCMonth() === month;
         const matchesName = normalizedRecordName === normalizedMemberName;
+        
         return matchesMonth && matchesName;
     });
 
@@ -408,11 +416,16 @@ function generateCalendarEmbed(
             return false;
         }
 
-        // Raid days are Wednesday and Saturday in local time (EST)
-        // We're checking the raid_type from the record if available
-        // Otherwise use the day of week
-        const dayOfWeek = date.getUTCDay();
-        return dayOfWeek === 3 || dayOfWeek === 6; // Wednesday and Saturday
+        // Convert UTC to EST for raid day checking
+        // EST is UTC-5 (or UTC-4 during daylight saving)
+        const estOffset = -5; // Standard time offset, would be -4 during daylight saving
+        const estDate = new Date(date);
+        estDate.setUTCHours(estDate.getUTCHours() + estOffset);
+        
+        // Use the day in EST time zone for determining raid days
+        // EST Wednesday (2) and Saturday (5)
+        const estDayOfWeek = estDate.getUTCDay();
+        return estDayOfWeek === 3 || estDayOfWeek === 6; // Wednesday and Saturday in EST
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
@@ -436,27 +449,50 @@ function generateCalendarEmbed(
             totalRaidDays++;
             
             const wasPresent = monthAttendance.some(record => {
-                // Convert the record date from UTC to EST (UTC-5)
-                // Since raids happen at 9pm EST which is 2am UTC the next day
-                // We need to adjust the date comparison accordingly
-                const recordDateUTC = new Date(Date.UTC(
-                    record.date.getUTCFullYear(),
-                    record.date.getUTCMonth(), 
-                    record.date.getUTCDate()
+                // Convert the record date (which is in UTC) to EST to check against our calendar
+                // which should display EST dates
+                const estOffset = -5; // Standard time offset, would be -4 during daylight saving
+                
+                // Create a new date object for the EST version of the record date
+                const recordDateEST = new Date(record.date);
+                recordDateEST.setUTCHours(recordDateEST.getUTCHours() + estOffset);
+                
+                // Get the EST day for comparison
+                const recordDateESTDay = new Date(Date.UTC(
+                    recordDateEST.getUTCFullYear(),
+                    recordDateEST.getUTCMonth(), 
+                    recordDateEST.getUTCDate()
                 ));
                 
-                // Convert UTC to EST by subtracting 5 hours
-                // This adjusts for the fact that a 9pm EST raid shows as 2am UTC the next day
-                const recordDateEST = new Date(recordDateUTC);
-                recordDateEST.setUTCHours(recordDateEST.getUTCHours() - 5);
+                const calendarDate = new Date(Date.UTC(year, month, day));
                 
-                const calendarDateEST = new Date(Date.UTC(year, month, day));
-                calendarDateEST.setUTCHours(calendarDateEST.getUTCHours() - 5);
+                // Check if the EST-adjusted record date matches our calendar date
+                if (recordDateESTDay.getTime() === calendarDate.getTime()) {
+                    return true;
+                }
                 
-                // Compare the dates in EST time zone
-                return recordDateEST.getUTCFullYear() === calendarDateEST.getUTCFullYear() && 
-                       recordDateEST.getUTCMonth() === calendarDateEST.getUTCMonth() && 
-                       recordDateEST.getUTCDate() === calendarDateEST.getUTCDate();
+                // Also check the raid_type if available for additional verification
+                if (record.raid_type) {
+                    const isWednesday = record.raid_type.includes('WED') && dayOfWeek === 3;
+                    const isSaturday = record.raid_type.includes('SAT') && dayOfWeek === 6;
+                    
+                    if (isWednesday || isSaturday) {
+                        // Convert the record UTC date to EST
+                        const estDate = new Date(record.date);
+                        estDate.setUTCHours(estDate.getUTCHours() + estOffset);
+                        
+                        // Check if this EST date is in the current calendar month/year
+                        const sameMonth = estDate.getUTCMonth() === month;
+                        const sameYear = estDate.getUTCFullYear() === year;
+                        const sameDay = estDate.getUTCDate() === day;
+                        
+                        if (sameYear && sameMonth && sameDay) {
+                            return true;
+                        }
+                    }
+                }
+                
+                return false;
             });
             
             if (wasPresent) {
