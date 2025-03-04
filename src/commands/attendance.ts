@@ -436,16 +436,27 @@ function generateCalendarEmbed(
             totalRaidDays++;
             
             const wasPresent = monthAttendance.some(record => {
-                const recordDate = new Date(Date.UTC(
+                // Convert the record date from UTC to EST (UTC-5)
+                // Since raids happen at 9pm EST which is 2am UTC the next day
+                // We need to adjust the date comparison accordingly
+                const recordDateUTC = new Date(Date.UTC(
                     record.date.getUTCFullYear(),
                     record.date.getUTCMonth(), 
                     record.date.getUTCDate()
                 ));
                 
-                const calendarDate = new Date(Date.UTC(year, month, day));
+                // Convert UTC to EST by subtracting 5 hours
+                // This adjusts for the fact that a 9pm EST raid shows as 2am UTC the next day
+                const recordDateEST = new Date(recordDateUTC);
+                recordDateEST.setUTCHours(recordDateEST.getUTCHours() - 5);
                 
-                // Simple date comparison - if the dates match exactly, they were present
-                return recordDate.getTime() === calendarDate.getTime();
+                const calendarDateEST = new Date(Date.UTC(year, month, day));
+                calendarDateEST.setUTCHours(calendarDateEST.getUTCHours() - 5);
+                
+                // Compare the dates in EST time zone
+                return recordDateEST.getUTCFullYear() === calendarDateEST.getUTCFullYear() && 
+                       recordDateEST.getUTCMonth() === calendarDateEST.getUTCMonth() && 
+                       recordDateEST.getUTCDate() === calendarDateEST.getUTCDate();
             });
             
             if (wasPresent) {
