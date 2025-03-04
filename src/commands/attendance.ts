@@ -416,16 +416,12 @@ function generateCalendarEmbed(
             return false;
         }
 
-        // Convert UTC to EST for raid day checking
-        // EST is UTC-5 (or UTC-4 during daylight saving)
-        const estOffset = -5; // Standard time offset, would be -4 during daylight saving
-        const estDate = new Date(date);
-        estDate.setUTCHours(estDate.getUTCHours() + estOffset);
+        // Get the UTC day of week
+        const dayOfWeek = date.getUTCDay();
         
-        // Use the day in EST time zone for determining raid days
-        // EST Wednesday (2) and Saturday (5)
-        const estDayOfWeek = estDate.getUTCDay();
-        return estDayOfWeek === 3 || estDayOfWeek === 6; // Wednesday and Saturday in EST
+        // For UTC Thursday (4) and Sunday (0), these are the Wednesday (3) and Saturday (6) in EST
+        // because EST is UTC-5
+        return dayOfWeek === 0 || dayOfWeek === 4; // UTC Sunday and Thursday
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
@@ -473,10 +469,11 @@ function generateCalendarEmbed(
                 
                 // Also check the raid_type if available for additional verification
                 if (record.raid_type) {
-                    const isWednesday = record.raid_type.includes('WED') && dayOfWeek === 3;
-                    const isSaturday = record.raid_type.includes('SAT') && dayOfWeek === 6;
+                    // Check for UTC Sunday (0) and Thursday (4) which are Saturday and Wednesday in EST
+                    const isWednesdayEST = record.raid_type.includes('WED') && dayOfWeek === 4; // Thursday UTC = Wednesday EST
+                    const isSaturdayEST = record.raid_type.includes('SAT') && dayOfWeek === 0; // Sunday UTC = Saturday EST
                     
-                    if (isWednesday || isSaturday) {
+                    if (isWednesdayEST || isSaturdayEST) {
                         // Convert the record UTC date to EST
                         const estDate = new Date(record.date);
                         estDate.setUTCHours(estDate.getUTCHours() + estOffset);
