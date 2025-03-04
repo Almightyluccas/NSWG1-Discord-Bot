@@ -452,24 +452,49 @@ function generateCalendarEmbed(
 
                 const calendarDate = new Date(Date.UTC(year, month, day));
                 
+                // Check status field - if it's explicitly set to 'absent', this is not a valid presence
+                if (record.status && record.status.toLowerCase() === 'absent') {
+                    console.log(`Skipping absent record for ${day}/${month+1}/${year}`);
+                    return false;
+                }
+                
                 // Direct match case (most accurate)
                 if (recordDate.getTime() === calendarDate.getTime()) {
-                    console.log(`Found direct match for ${day}/${month}/${year}`);
-                    return true;
+                    console.log(`Found direct date match for ${day}/${month+1}/${year} with record date ${recordDate.toISOString()}`);
+                    
+                    // Double check with raid_type if available
+                    if (record.raid_type) {
+                        if ((dayOfWeek === 6 && record.raid_type.includes('SAT')) || 
+                            (dayOfWeek === 3 && record.raid_type.includes('WED'))) {
+                            console.log(`Confirmed by raid_type: ${record.raid_type}`);
+                            return true;
+                        }
+                    } else {
+                        // If no raid_type, trust the date match
+                        return true;
+                    }
                 }
 
                 // Special handling for raid types
                 if (record.raid_type) {
                     // If it's a Saturday in the calendar (6) and this is a SAT record
                     if (dayOfWeek === 6 && record.raid_type.includes('SAT')) {
-                        console.log(`Found SAT raid record for day ${day} (${record.raid_type})`);
-                        return true;
+                        // Check that the specific date matches or is very close (within 1 day)
+                        const dayDiff = Math.abs(recordDate.getTime() - calendarDate.getTime()) / (1000 * 60 * 60 * 24);
+                        if (dayDiff <= 1) {
+                            console.log(`Found SAT raid record for day ${day}/${month+1}/${year} (${record.raid_type})`);
+                            return true;
+                        }
                     }
                     
                     // If it's a Wednesday in the calendar (3) and this is a WED record
                     if (dayOfWeek === 3 && record.raid_type.includes('WED')) {
-                        console.log(`Found WED raid record for day ${day} (${record.raid_type})`);
-                        return true;
+                        // Check that the specific date matches or is very close (within 1 day)
+                        const dayDiff = Math.abs(recordDate.getTime() - calendarDate.getTime()) / (1000 * 60 * 60 * 24);
+                        if (dayDiff <= 1) {
+                            console.log(`Found WED raid record for day ${day}/${month+1}/${year} (${record.raid_type})`);
+                            return true;
+                        }
                     }
                 }
                 
