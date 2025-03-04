@@ -436,7 +436,6 @@ function generateCalendarEmbed(
             totalRaidDays++;
             
             const wasPresent = monthAttendance.some(record => {
-                // Check if we have a direct match for this date in UTC
                 const recordDate = new Date(Date.UTC(
                     record.date.getUTCFullYear(),
                     record.date.getUTCMonth(), 
@@ -445,24 +444,7 @@ function generateCalendarEmbed(
                 
                 const calendarDate = new Date(Date.UTC(year, month, day));
                 
-                // If the record has a raid_type field containing SAT or WED,
-                // use that to determine if this is a match for this day
-                if (record.raid_type) {
-                    const isWednesday = record.raid_type.includes('WED') && dayOfWeek === 3;
-                    const isSaturday = record.raid_type.includes('SAT') && dayOfWeek === 6;
-                    
-                    if (isWednesday || isSaturday) {
-                        // Check if the month and year match
-                        const sameMonth = record.date.getUTCMonth() === month;
-                        const sameYear = record.date.getUTCFullYear() === year;
-                        
-                        if (sameMonth && sameYear) {
-                            return true;
-                        }
-                    }
-                }
-                
-                // Fall back to direct date comparison
+                // Simple date comparison - if the dates match exactly, they were present
                 return recordDate.getTime() === calendarDate.getTime();
             });
             
