@@ -521,8 +521,11 @@ function generateCalendarEmbed(
     calendarText += table.toString();
     calendarText += '\n```';
 
+    // Fix totalOverallAttendedDays calculation by properly counting records with PRESENT status
     let totalOverallRaidDays = 0;
-    let totalOverallAttendedDays = overallAttendance.length;
+    let totalOverallAttendedDays = overallAttendance.filter(record => 
+        record.status && record.status.toUpperCase() === 'PRESENT'
+    ).length;
 
     let currentDate = new Date(TRACKING_START_DATE);
     const today = new Date();
