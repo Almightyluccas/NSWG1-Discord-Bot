@@ -418,9 +418,9 @@ function generateCalendarEmbed(
         // Get the UTC day of week
         const dayOfWeek = date.getUTCDay();
         
-        // For UTC Thursday (4) and Sunday (0), these are the Wednesday (3) and Saturday (6) in EST
-        // because EST is UTC-5
-        return dayOfWeek === 0 || dayOfWeek === 4; // UTC Sunday and Thursday
+        // Raid days are Sunday (0) and Wednesday (3) in UTC
+        // These correspond to Saturday and Wednesday in EST
+        return dayOfWeek === 0 || dayOfWeek === 3; // UTC Sunday and Wednesday
     };
 
     const compareDates = (date1: Date, date2: Date): boolean => {
@@ -444,47 +444,31 @@ function generateCalendarEmbed(
             totalRaidDays++;
             
             const wasPresent = monthAttendance.some(record => {
-                // Convert the record date (which is in UTC) to EST to check against our calendar
-                // which should display EST dates
-                const estOffset = -5; // Standard time offset, would be -4 during daylight saving
-                
-                // Create a new date object for the EST version of the record date
-                const recordDateEST = new Date(record.date);
-                recordDateEST.setUTCHours(recordDateEST.getUTCHours() + estOffset);
-                
-                // Get the EST day for comparison
-                const recordDateESTDay = new Date(Date.UTC(
-                    recordDateEST.getUTCFullYear(),
-                    recordDateEST.getUTCMonth(), 
-                    recordDateEST.getUTCDate()
+                // First, check if the UTC date matches directly
+                const recordDate = new Date(Date.UTC(
+                    record.date.getUTCFullYear(),
+                    record.date.getUTCMonth(), 
+                    record.date.getUTCDate()
                 ));
-                
+
                 const calendarDate = new Date(Date.UTC(year, month, day));
                 
-                // Check if the EST-adjusted record date matches our calendar date
-                if (recordDateESTDay.getTime() === calendarDate.getTime()) {
+                // Direct match case (most accurate)
+                if (recordDate.getTime() === calendarDate.getTime()) {
                     return true;
                 }
-                
-                // Also check the raid_type if available for additional verification
+
+                // Special handling for raid types
                 if (record.raid_type) {
-                    // Check for UTC Sunday (0) and Thursday (4) which are Saturday and Wednesday in EST
-                    const isWednesdayEST = record.raid_type.includes('WED') && dayOfWeek === 4; // Thursday UTC = Wednesday EST
-                    const isSaturdayEST = record.raid_type.includes('SAT') && dayOfWeek === 0; // Sunday UTC = Saturday EST
+                    // If it's a Sunday in the calendar (0) and this is a SAT record - it's a match
+                    if (dayOfWeek === 0 && record.raid_type.includes('SAT')) {
+                        // The record might be from late Saturday EST which is Sunday in UTC
+                        return true;
+                    }
                     
-                    if (isWednesdayEST || isSaturdayEST) {
-                        // Convert the record UTC date to EST
-                        const estDate = new Date(record.date);
-                        estDate.setUTCHours(estDate.getUTCHours() + estOffset);
-                        
-                        // Check if this EST date is in the current calendar month/year
-                        const sameMonth = estDate.getUTCMonth() === month;
-                        const sameYear = estDate.getUTCFullYear() === year;
-                        const sameDay = estDate.getUTCDate() === day;
-                        
-                        if (sameYear && sameMonth && sameDay) {
-                            return true;
-                        }
+                    // If it's a Wednesday in the calendar (3) and this is a WED record - it's a match
+                    if (dayOfWeek === 3 && record.raid_type.includes('WED')) {
+                        return true;
                     }
                 }
                 
