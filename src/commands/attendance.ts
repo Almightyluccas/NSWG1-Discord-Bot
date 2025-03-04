@@ -1,5 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType,
-    Guild } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder, Colors, StringSelectMenuInteraction, ComponentType, Guild } from "discord.js";
 import Table from 'cli-table3';
 import { Command } from "../interfaces/Command";
 import { getPlayerAttendance, AttendanceRecord, TRACKING_START_DATE } from "../services/attendanceService";
