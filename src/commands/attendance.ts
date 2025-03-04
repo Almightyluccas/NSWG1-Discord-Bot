@@ -531,8 +531,17 @@ function generateCalendarEmbed(
         if (isRaidDay(currentDate)) {
             totalOverallRaidDays++;
         }
-        currentDate.setDate(currentDate.getDate() + 1);
+        // Create a new date object to avoid modifying the same instance
+        const nextDate = new Date(currentDate);
+        nextDate.setDate(nextDate.getDate() + 1);
+        currentDate = nextDate;
     }
+
+    // Log attendance information for debugging
+    console.log(`Total raid days this month: ${totalRaidDays}`);
+    console.log(`Attended raid days this month: ${attendedRaidDays}`);
+    console.log(`Total overall raid days since tracking: ${totalOverallRaidDays}`);
+    console.log(`Total overall attended days: ${totalOverallAttendedDays}`);
 
     const monthlyAttendanceRate = totalRaidDays ? Math.round((attendedRaidDays / totalRaidDays) * 100) : 0;
     const overallAttendanceRate = totalOverallRaidDays ? Math.round((totalOverallAttendedDays / totalOverallRaidDays) * 100) : 0;
